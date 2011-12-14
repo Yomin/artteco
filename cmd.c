@@ -138,11 +138,16 @@ struct cmd_ret std_escape_main(int given, int param)
 
 void std_insert_ecf(char c)
 {
+    char e = c < 32 ? '1' : '0';
+    stack_push(&e, sizeof(char), parse_get_stk_rub());
     buffer_write_char(c, buffer_mgr_current());
 }
 
 void std_insert_ecf_rubout(char* text)
 {
+    char e;
+    stack_pop(&e, parse_get_stk_rub());
+    if(e == '1') buffer_delete_char(buffer_mgr_current());
     buffer_delete_char(buffer_mgr_current());
 }
 

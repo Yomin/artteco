@@ -40,7 +40,6 @@ char status_line[80];
 char msg_line[80];
 int textcursor_pos_x, textcursor_pos_y;
 int tmp_x, tmp_y;
-const char* tab_esc[32];
 
 // EXTERNAL
 
@@ -70,40 +69,7 @@ void screen_init()
     move(lines-1, 1);
     signal(SIGWINCH, resizeHandler);
     noecho();
-    
-    tab_esc[ 0] = "NUL";
-    tab_esc[ 1] = "SOH";
-    tab_esc[ 2] = "STX";
-    tab_esc[ 3] = "ETX";
-    tab_esc[ 4] = "EOT";
-    tab_esc[ 5] = "ENQ";
-    tab_esc[ 6] = "ACK";
-    tab_esc[ 7] = "BEL";
-    tab_esc[ 8] = "BS";
-    tab_esc[ 9] = "TAB";
-    tab_esc[10] = "LF";
-    tab_esc[11] = "VT";
-    tab_esc[12] = "FF";
-    tab_esc[13] = "CR";
-    tab_esc[14] = "SO";
-    tab_esc[15] = "SI";
-    tab_esc[16] = "DLE";
-    tab_esc[17] = "DC1";
-    tab_esc[18] = "DC2";
-    tab_esc[19] = "DC3";
-    tab_esc[20] = "DC4";
-    tab_esc[21] = "NAK";
-    tab_esc[22] = "SYN";
-    tab_esc[23] = "ETB";
-    tab_esc[24] = "CAN";
-    tab_esc[25] = "EM";
-    tab_esc[26] = "SUB";
-    tab_esc[27] = "ESC";
-    tab_esc[28] = "FS";
-    tab_esc[29] = "GS";
-    tab_esc[30] = "RS";
-    tab_esc[31] = "US";
-    
+    raw();
 }
 
 void screen_finish()
@@ -155,10 +121,8 @@ void screen_input_prompt(char c, int type)
         case SCREEN_INPUT_TYPE_TXT: att = A_WHITE_BLACK; break;
         case SCREEN_INPUT_TYPE_ESC: att = A_GREY_BLACK; break;
     }
-    attron(att);
-    if(c < 32) printw("<%s>", tab_esc[(int)c]);
-    else addch(c);
-    attroff(att);
+    if(c == '^') addch(c|att);
+    addch(c|att);
 }
 
 void screen_input_text(char c)
@@ -175,20 +139,26 @@ void screen_delete_prompt()
 {
     int y, x;
     getyx(stdscr, y, x);
-    x--;
-    move(y, x);
-    int c = inch()&A_CHARTEXT;
-    if(c == '>')
-    {
-        while(c != '<')
-        {
-            delch();
-            x--;
-            move(y, x);
-            c = inch()&A_CHARTEXT;
-        }
-    }
+    move(y, --x);
     delch();
+    int count = 0;
+    move(y, x-1);
+    int c = inch()&A_CHARTEXT;
+    while(c == '^')
+    {
+        count++;
+        move(y, x-count-1);
+        c = inch()&A_CHARTEXT;
+    }
+    if(count % 2 == 1)
+    {
+        move(y, --x);
+        delch();
+    }
+    else
+    {
+        move(y, x);
+    }
 }
 
 void screen_delete_text()

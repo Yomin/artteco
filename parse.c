@@ -15,7 +15,7 @@
 // DEFINES
 
 #define ESCAPE      27
-#define BACKSPACE   'p'
+#define BACKSPACE   127
 #define ESC_CHAR    '$'
 
 #define MASK_SIGN     1
