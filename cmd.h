@@ -1,7 +1,7 @@
 /*    _________________________
 //   / _ | _  / /_  __\  _\  _ \
 //  / __ |   / __/ / -_\ \_\ \\ \
-// /_/ |_|_\_\__/_/\___/\___\____\ 
+// /_/ |_|_\_\__/_/\___/\___\____\
 */
 
 #ifndef __ART_TECO_CMD__
@@ -14,20 +14,22 @@
 
 #define CMD_MASK_RET    3 // choose bits containing return status
 #define CMD_MASK_VALUE  4 // set/choose bit whether return value existent
+#define CMD_MASK_MSG    8 // whether screen msg was set
 
 struct cmd_ret
 {
     int ret, value;
 };
 
-typedef struct cmd_ret cmd_init(int given, int param);  // cmd initialize function
+typedef struct cmd_ret cmd_main(int given, int param);  // cmd initialize function
 typedef struct cmd_ret cmd_exec(char* str);             // cmd execute function
 typedef int cmd_after();                                // after prompt finish function
 typedef void cmd_rubout();                              // cmd rubout function
 typedef void cmd_ecf(char c);                           // every char function
 
-void cmd_start();
-cmd_init* cmd_lookup(char c);
+void cmd_init();
+void cmd_finish();
+cmd_main* cmd_lookup(char c);
 
 void cmd_reset_table();
 

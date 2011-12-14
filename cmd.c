@@ -5,9 +5,13 @@
 */
 
 #include "cmd.h"
-#include "screen.h"
 #include "parse.h"
 #include "stack.h"
+#include "buffer_mgr.h"
+#include "screen.h"
+
+#include <string.h>
+#include <libgen.h>
 
 // DEFINES
 
@@ -17,39 +21,46 @@
 
 // FORWARDS
 
-struct cmd_ret std_escape_init(int given, int param);
-struct cmd_ret std_insert_init(int given, int param);
-struct cmd_ret std_test_init(int given, int param);
-struct cmd_ret std_sub_init(int given, int param);
-struct cmd_ret std_push_init(int given, int param);
-struct cmd_ret std_extra_init(int given, int param);
+struct cmd_ret std_escape_main(int given, int param);
+struct cmd_ret std_insert_main(int given, int param);
+struct cmd_ret std_test_main(int given, int param);
+struct cmd_ret std_sub_main(int given, int param);
+struct cmd_ret std_push_main(int given, int param);
+struct cmd_ret std_extra_main(int given, int param);
 
-struct cmd_ret extra_exit_init(int given, int param);
+struct cmd_ret extra_exit_main(int given, int param);
+struct cmd_ret extra_buffer_load_main(int given, int param);
 
 // VARIABLES
 
-cmd_init* cmd_table[3][256];
+cmd_main* cmd_table[3][256];
 int table_current;
 
 // EXTERNAL
 
-void cmd_start()
+void cmd_init()
 {
     table_current = TAB_STD;
     
-    cmd_table[TAB_STD][27]  = std_escape_init;
-    cmd_table[TAB_STD]['e'] = std_extra_init;
-    cmd_table[TAB_STD]['i'] = std_insert_init;
-    cmd_table[TAB_STD]['t'] = std_test_init;
-    cmd_table[TAB_STD]['-'] = std_sub_init;
-    cmd_table[TAB_STD][','] = std_push_init;
+    cmd_table[TAB_STD][27]  = std_escape_main;
+    cmd_table[TAB_STD]['e'] = std_extra_main;
+    cmd_table[TAB_STD]['i'] = std_insert_main;
+    cmd_table[TAB_STD]['t'] = std_test_main;
+    cmd_table[TAB_STD]['-'] = std_sub_main;
+    cmd_table[TAB_STD][','] = std_push_main;
     
-    cmd_table[TAB_EXTRA]['x'] = extra_exit_init;
+    cmd_table[TAB_EXTRA]['x'] = extra_exit_main;
+    cmd_table[TAB_EXTRA]['b'] = extra_buffer_load_main;
 }
 
-cmd_init* cmd_lookup(char c)
+void cmd_finish()
 {
-    return cmd_table[table_current][c];
+    // nothing to do
+}
+
+cmd_main* cmd_lookup(char c)
+{
+    return cmd_table[table_current][(int)c];
 }
 
 void cmd_reset_table()
@@ -67,20 +78,23 @@ struct cmd_ret ret(ret, value)
     return s;
 }
 
+struct cmd_ret empty(char* str);
+
 void empty_rubout()
 {
-    // do nothing
+    stack_push_sp(empty, parse_get_stk_func());
 }
 
-int empty(char* str)
+struct cmd_ret empty(char* str)
 {
     stack_push_p(empty_rubout, sizeof(cmd_rubout*), parse_get_stk_rub());
+    return ret(CMD_RET_SUCCESS, 0);
 }
 
 // == STD CMDs ==
 
 // ESCAPE
-// init:    execute top of func stack, if empty start prompt cleanup
+// main:    execute top of func stack, if empty start prompt cleanup
 
 void std_escape_rubout()
 {
@@ -92,7 +106,7 @@ void std_escape_rubout()
     r();
 }
 
-struct cmd_ret std_escape_init(int given, int param)
+struct cmd_ret std_escape_main(int given, int param)
 {
     if(stack_empty(parse_get_stk_func()))
     {
@@ -104,7 +118,7 @@ struct cmd_ret std_escape_init(int given, int param)
         stack_pop(&f, parse_get_stk_func());
         stack_push(&f, sizeof(cmd_exec*), parse_get_stk_rub());
         struct cmd_ret r = f(stack_get_base(parse_get_stk_input()));
-        if(r.ret&CMD_MASK_RET == CMD_RET_FAILURE)
+        if((r.ret & CMD_MASK_RET) == CMD_RET_FAILURE)
         {
             stack_pop_s(parse_get_stk_rub());
             stack_push(&f, sizeof(cmd_exec*), parse_get_stk_func());
@@ -118,18 +132,18 @@ struct cmd_ret std_escape_init(int given, int param)
 }
 
 // INSERT
-// init:    if param given insert ascii char of param at dot, else register ecf
+// main:    if param given insert ascii char of param at dot, else register ecf
 // ecf:     insert new character at dot
 // func[0]: do nothing
 
 void std_insert_ecf(char c)
 {
-    screen_input_text(c);
+    buffer_write_char(c, buffer_mgr_current());
 }
 
 void std_insert_ecf_rubout(char* text)
 {
-    screen_delete_text();
+    buffer_delete_char(buffer_mgr_current());
 }
 
 void std_insert_rubout()
@@ -138,7 +152,7 @@ void std_insert_rubout()
     stack_pop(&mode, parse_get_stk_rub());
     if(mode == '0')
     {
-        screen_delete_text();
+        buffer_delete_char(buffer_mgr_current());
     }
     else
     {
@@ -152,13 +166,13 @@ void std_insert_rubout()
     }
 }
 
-struct cmd_ret std_insert_init(int given, int param)
+struct cmd_ret std_insert_main(int given, int param)
 {
     char mode;
     if(given)
     {
         if(param < 0 || param > 255) return ret(CMD_RET_FAILURE, 0);
-        screen_input_text((char)param);
+        buffer_write_char((char)param, buffer_mgr_current());
         mode = '0';
     }
     else
@@ -177,7 +191,7 @@ struct cmd_ret std_insert_init(int given, int param)
 }
 
 // SUB
-// init: toggle sign of param for next cmd
+// main: toggle sign of param for next cmd
 
 void std_sub_rubout()
 {
@@ -186,24 +200,24 @@ void std_sub_rubout()
     if(toggle == '1') parse_toggle_sign();
 }
 
-struct cmd_ret std_sub_init(int given, int param)
+struct cmd_ret std_sub_main(int given, int param)
 {
     char toggle = param>0 ? '1' : '0';
     if(param>0) parse_toggle_sign();
     stack_push(&toggle, sizeof(char), parse_get_stk_rub());
     stack_push_p(std_sub_rubout, sizeof(cmd_rubout*), parse_get_stk_rub());
-    return ret(CMD_RET_SUCCESS|CMD_MASK_RET, -1);
+    return ret(CMD_RET_SUCCESS|CMD_MASK_VALUE, -1);
 }
 
 // PUSH
-// init:    push param to gen stack
+// main:    push param to gen stack
 
 void std_push_rubout()
 {
     stack_pop_s(parse_get_stk_gen());
 }
 
-struct cmd_ret std_push_init(int given, int param)
+struct cmd_ret std_push_main(int given, int param)
 {
     stack_push(&param, sizeof(int), parse_get_stk_gen());
     stack_push_p(std_push_rubout, sizeof(cmd_rubout*), parse_get_stk_rub());
@@ -211,45 +225,52 @@ struct cmd_ret std_push_init(int given, int param)
 }
 
 // SCROLL
-// init:    todo
+// main:    todo
 
 void std_test_rubout()
 {
     int n;
     stack_pop(&n, parse_get_stk_rub());
-    screen_scroll(-n);
+    buffer_scroll(-n, buffer_mgr_current());
 }
 
-struct cmd_ret std_test_init(int given, int param)
+struct cmd_ret std_test_main(int given, int param)
 {
-    screen_scroll(param);
+    buffer_scroll(param, buffer_mgr_current());
     stack_push(&param, sizeof(int), parse_get_stk_rub());
     stack_push_p(std_test_rubout, sizeof(cmd_rubout*), parse_get_stk_rub());
     return ret(CMD_RET_SUCCESS, 0);
 }
 
 // EXTRA
-// init: switch cmd table to EXTRA
+// main: switch cmd table to EXTRA
 
 void std_extra_rubout()
 {
     stack_pop(&table_current, parse_get_stk_rub());
 }
 
-struct cmd_ret std_extra_init(int given, int param)
+struct cmd_ret std_extra_main(int given, int param)
 {
     stack_push(&table_current, sizeof(int), parse_get_stk_rub());
     stack_push_p(std_extra_rubout, sizeof(cmd_rubout*), parse_get_stk_rub());
     
     table_current = TAB_EXTRA;
     
-    return ret(CMD_RET_SUCCESS, 0);
+    if(given)
+    {
+        return ret(CMD_RET_SUCCESS|CMD_MASK_VALUE, param);
+    }
+    else
+    {
+        return ret(CMD_RET_SUCCESS, 0);
+    }
 }
 
 // == EXTRA CMDs ==
 
 // EXIT
-// init:        put exit func on after stack
+// main:        put exit func on after stack
 // after[0]:    exit teco
 
 int extra_exit_after()
@@ -263,7 +284,7 @@ void extra_exit_rubout()
     stack_pop(&table_current, parse_get_stk_rub());
 }
 
-struct cmd_ret extra_exit_init(int given, int param)
+struct cmd_ret extra_exit_main(int given, int param)
 {
     stack_push_sp(extra_exit_after, parse_get_stk_after());
     stack_push(&table_current, sizeof(int), parse_get_stk_rub());
@@ -274,4 +295,100 @@ struct cmd_ret extra_exit_init(int given, int param)
     return ret(CMD_RET_SUCCESS, 0);
 }
 
+// BUFFER LOAD
+// main:    if param given switch buf or show stat else register buffer load function
+// func[0]: load file in new buffer
 
+void extra_buffer_load_rubout()
+{
+    stack_pop(&table_current, parse_get_stk_rub());
+    char mode;
+    stack_pop(&mode, parse_get_stk_rub());
+    int previous;
+    switch(mode)
+    {
+        case '0': break;
+        case '1':
+            stack_pop(&previous, parse_get_stk_rub());
+            buffer_mgr_switch(previous);
+            break;
+        case '2':
+            stack_pop_s(parse_get_stk_func());
+            break;
+    }
+}
+
+struct cmd_ret extra_buffer_load_func(char* str);
+
+void extra_buffer_load_func_rubout()
+{
+    int previous, current = buffer_mgr_current()->number;
+    stack_pop(&previous, parse_get_stk_rub());
+    buffer_mgr_switch(previous);
+    buffer_mgr_delete(current);
+    stack_push_sp(extra_buffer_load_func, parse_get_stk_func());
+}
+
+struct cmd_ret extra_buffer_load_func(char* str)
+{
+    if(strlen(str) == 0)
+    {
+        screen_set_msg("filename required");
+        return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
+    }
+    else
+    {
+        int current = buffer_mgr_current()->number;
+        if(!buffer_mgr_add_file(basename(str), str))
+        {
+            screen_set_msg("file not found");
+            return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
+        }
+        else
+        {
+            stack_push(&current, sizeof(int), parse_get_stk_rub());
+            stack_push_p(extra_buffer_load_func_rubout, sizeof(cmd_rubout*), parse_get_stk_rub());
+            return ret(CMD_RET_SUCCESS, 0);
+        }
+    }
+}
+
+struct cmd_ret extra_buffer_load_main(int given, int param)
+{
+    char mode;
+    if(given)
+    {
+        if(param == 0)
+        {
+            mode = '0';
+            screen_set_msg("not implemented");
+            return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
+        }
+        else
+        {
+            mode = '1';
+            int current = buffer_mgr_current()->number;
+            if(buffer_mgr_switch(param))
+            {
+                stack_push(&current, sizeof(int), parse_get_stk_rub());
+            }
+            else
+            {
+                screen_set_msg("buffer not loaded");
+                return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
+            }
+        }
+    }
+    else
+    {
+        mode = '2';
+        stack_push_sp(extra_buffer_load_func, parse_get_stk_func());
+    }
+    
+    stack_push(&mode, sizeof(char), parse_get_stk_rub());
+    stack_push(&table_current, sizeof(int), parse_get_stk_rub());
+    stack_push_p(extra_buffer_load_rubout, sizeof(cmd_rubout*), parse_get_stk_rub());
+    table_current = TAB_STD;
+    
+    return ret(CMD_RET_SUCCESS, 0);
+}

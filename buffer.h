@@ -7,35 +7,34 @@
 #ifndef __ART_TECO_BUFFER__
 #define __ART_TECO_BUFFER__
 
-#include <stdio.h>
+#include "stack.h"
+#include "file.h"
 
-#define BUFFER_LINE_SIZE 1200
-#define BUFFER_CHUNK_SIZE 1024*32
-#define BUFFER_CHUNK_COUNT 32
-#define BUFFER_CHUNK_INACTIVITY 10
+#define BUFFER_NAME_SIZE 80
 
-struct buffer_line
+struct line_info
 {
-    char line[BUFFER_LINE_SIZE];
+    int newline;
     int size;
-    struct buffer_line *next, *prev;
-};
-
-struct buffer_chunk
-{
-    int start, end;
-    struct buffer_line *lines, *current;
+    char* ptr;
 };
 
 struct buffer_state
 {
-    FILE* file;
-    struct buffer_chunk* chunks;
+    char name[BUFFER_NAME_SIZE];
+    int number;
+    struct line_info* lines;
+    struct stack_state stack;
+    struct file_state file;
 };
 
-struct buffer_state* buffer_init(struct buffer_state* buffer);
-//~ struct buffer_state* buffer_load(char* file, struct buffer_state* buffer);
-//~ struct buffer_line* buffer_next_line(struct buffer_state* buffer);
-//~ struct buffer_line* buffer_prev_line(struct buffer_state* buffer);
+struct buffer_state* buffer_init(const char* name, int number, int lines, struct buffer_state* buffer);
+void buffer_close(struct buffer_state* buffer);
+struct buffer_state* buffer_load(const char* file, struct buffer_state* buffer);
+struct buffer_state* buffer_write_str(const char* str, struct buffer_state* buffer);
+struct buffer_state* buffer_delete_str(int count, struct buffer_state* buffer);
+struct buffer_state* buffer_write_char(char c, struct buffer_state* buffer);
+struct buffer_state* buffer_delete_char(struct buffer_state* buffer);
+struct buffer_state* buffer_scroll(int lines, struct buffer_state* buffer);
 
 #endif

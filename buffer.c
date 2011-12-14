@@ -1,39 +1,76 @@
-/*    _______________________
-//   / _ / _ / /_  __\  _\   \
-//  / _ /   / __/ / -_\ \_\ \ \
-// /_/_/_/\_\__/_/\___/\___\___\ 
+/*    _________________________
+//   / _ | _  / /_  __\  _\  _ \
+//  / __ |   / __/ / -_\ \_\ \\ \
+// /_/ |_|_\_\__/_/\___/\___\____\ 
 */
 
 #include "buffer.h"
+#include "screen.h"
+
+#include <string.h>
 #include <stdlib.h>
 
-struct buffer_state* buffer_init(struct buffer_state* buffer)
+#define min(x,y) (x<y ? x : y)
+
+struct buffer_state* buffer_init(const char* name, int number, int lines, struct buffer_state* buffer)
 {
-    buffer->chunks = (struct buffer_chunk*)malloc(sizeof(struct buffer_chunk));
-    buffer->chunks->lines = (struct buffer_line*)malloc(sizeof(struct buffer_line));
-    buffer->chunks->lines->size = 0;
-    buffer->chunks->lines->next = 0;
-    buffer->chunks->lines->prev = 0;
-    buffer->chunks->current = buffer->chunks->lines;
-    buffer->chunks->start = 0;
-    buffer->chunks->end = -1;
-    buffer->file = 0;
+    strncpy(buffer->name, name, BUFFER_NAME_SIZE-1);
+    buffer->name[min(strlen(name), BUFFER_NAME_SIZE-1)] = 0;
+    buffer->number = number;
+    buffer->lines = (struct line_info*) malloc(lines*sizeof(struct line_info));
+    stack_init(STACK_MODE_SIMPLE, sizeof(char), &buffer->stack);
+    file_init(&buffer->file);
     return buffer;
 }
 
-//~ struct buffer_state* buffer_load(char* file, struct buffer_state* buffer)
-//~ {
-    //~ buffer->file = fopen(file, "rw");
-    //~ if(!buffer->file) return 0;
-    //~ return buffer;
-//~ }
-//~ 
-//~ struct buffer_line* buffer_next_line(struct buffer_state* buffer)
-//~ {
-    //~ 
-//~ }
-//~ 
-//~ struct buffer_line* buffer_prev_line(struct buffer_state* buffer)
-//~ {
-    //~ 
-//~ }
+void buffer_close(struct buffer_state* buffer)
+{
+    free(buffer->lines);
+}
+
+struct buffer_state* buffer_load(const char* file, struct buffer_state* buffer)
+{
+    struct file_state* fs = file_load(file, &buffer->file);
+    // todo
+    return fs ? buffer : 0;
+}
+
+struct buffer_state* buffer_write_str(const char* str, struct buffer_state* buffer)
+{
+    while(*str)
+    {
+        // buffer todo
+        screen_input_text(*str);
+        str++;
+    }
+    return buffer;
+}
+
+struct buffer_state* buffer_write_char(char c, struct buffer_state* buffer)
+{
+    char str[2];
+    str[0] = c;
+    str[1] = 0;
+    return buffer_write_str((const char*)&str, buffer);
+}
+
+struct buffer_state* buffer_delete_str(int count, struct buffer_state* buffer)
+{
+    while(count > 0)
+    {
+        // buffer todo
+        screen_delete_text();
+        count--;
+    }
+    return buffer;
+}
+
+struct buffer_state* buffer_delete_char(struct buffer_state* buffer)
+{
+    return buffer_delete_str(1, buffer);
+}
+
+struct buffer_state* buffer_scroll(int lines, struct buffer_state* buffer)
+{
+    return buffer;
+}

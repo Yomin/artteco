@@ -9,7 +9,10 @@
 
 #include "stack.h"
 #include "cmd.h"
+#include "buffer.h"
 
+void parse_init();
+void parse_finish();
 int parse_start();
 
 struct stack_state* parse_get_stk_input();

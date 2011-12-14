@@ -7,9 +7,10 @@
 #include "parse.h"
 #include "screen.h"
 #include "help.h"
+#include "list.h"
 
-#include <stdio.h>
 #include <stdlib.h>
+#include <ncurses.h>
 
 // DEFINES
 
@@ -42,7 +43,7 @@ int arg_given, arg_value;   // argument from last for next cmd
 
 // EXTERNAL
 
-int parse_start()
+void parse_init()
 {
     stack_init(STACK_MODE_SIMPLE, sizeof(char), &stk_input);
     stack_init(STACK_MODE_SIMPLE, sizeof(cmd_exec*), &stk_func);
@@ -54,12 +55,18 @@ int parse_start()
     ecf = ecf_empty;
     ecf_rub = ecf_rub_empty;
     
-    cmd_start();
-    
     status = -1;
     sign = 1;
     arg_given = 0;
-    
+}
+
+void parse_finish()
+{
+    // nothing to do
+}
+
+int parse_start()
+{
     while(status < 0)
     {
         char c = getch();
@@ -151,6 +158,19 @@ void parse_toggle_sign()
 
 // INTERNAL
 
+void reset()
+{
+    stack_clear(&stk_gen);
+    stack_clear(&stk_func);
+    stack_clear(&stk_rub);
+    stack_clear(&stk_after);
+    stack_clear(&stk_input);
+    screen_set_prompt(0);
+    ecf = ecf_empty;
+    ecf_rub = ecf_rub_empty;
+    cmd_reset_table();
+}
+
 void process_param_num(char c)
 {
     stack_push_s(&c, &stk_input);
@@ -212,7 +232,7 @@ void process_rubout()
 
 void process_cmd(char c)
 {
-    cmd_init* f = cmd_lookup(c);
+    cmd_main* f = cmd_lookup(c);
     if(!f)
     {
         screen_set_msg("unknown cmd");
@@ -239,14 +259,15 @@ void process_cmd(char c)
         }
         if(arg_given) stack_push(&arg_value, sizeof(int), &stk_rub);
         stack_push(&info, sizeof(char), &stk_rub);
-        sign = 1;
-        arg_given = 0;
         
         struct cmd_ret ret = f(arg_given||arg_user_given, param);
         
         switch(ret.ret & CMD_MASK_RET)
         {
             case CMD_RET_SUCCESS:
+                sign = 1;
+                arg_given = 0;
+                stack_clear(&stk_input);
                 if(ret.ret & CMD_MASK_VALUE)
                 {
                     arg_given = 1;
@@ -262,7 +283,17 @@ void process_cmd(char c)
                 }
                 break;
             case CMD_RET_FAILURE:
-                screen_set_msg("cmd failed");
+                stack_pop_s(&stk_rub);
+                if(arg_given) stack_pop_s(&stk_rub);
+                if(!stack_empty(&stk_input))
+                {
+                    stack_pop_s(&stk_rub); // stk_input size
+                    stack_pop_s(&stk_rub); // stk_input content
+                }
+                if(!(ret.ret & CMD_MASK_MSG))
+                {
+                    screen_set_msg("cmd failed");
+                }
                 break;
             case CMD_RET_FINISH:
                 while(!stack_empty(&stk_after))
@@ -279,19 +310,12 @@ void process_cmd(char c)
                             break;
                     }
                 }
-                stack_clear(&stk_gen);
-                stack_clear(&stk_func);
-                stack_clear(&stk_rub);
-                screen_set_prompt(0);
-                ecf = ecf_empty;
-                ecf_rub = ecf_rub_empty;
-                cmd_reset_table();
+                reset();
                 break;
             case CMD_RET_EXIT:
                 status = 0;
                 break;
         }
-        stack_clear(&stk_input);
     }
 }
 

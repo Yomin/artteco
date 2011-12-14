@@ -111,6 +111,16 @@ void screen_finish()
     endwin();
 }
 
+int screen_get_lines()
+{
+    return lines;
+}
+
+int screen_get_columns()
+{
+    return columns;
+}
+
 void screen_update_size()
 {
     endwin();
@@ -146,7 +156,7 @@ void screen_input_prompt(char c, int type)
         case SCREEN_INPUT_TYPE_ESC: att = A_GREY_BLACK; break;
     }
     attron(att);
-    if(c < 32) printw("<%s>", tab_esc[c]);
+    if(c < 32) printw("<%s>", tab_esc[(int)c]);
     else addch(c);
     attroff(att);
 }

@@ -14,6 +14,9 @@
 void screen_init();
 void screen_finish();
 
+int screen_get_lines();
+int screen_get_columns();
+
 void screen_update_size();
 void screen_set_status(char* status);
 void screen_set_msg(char* msg);
