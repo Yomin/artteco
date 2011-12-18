@@ -165,7 +165,7 @@ void reset()
     stack_clear(&stk_rub);
     stack_clear(&stk_after);
     stack_clear(&stk_input);
-    screen_set_prompt(0);
+    screen_reset_prompt();
     ecf = ecf_empty;
     ecf_rub = ecf_rub_empty;
     cmd_reset_table();

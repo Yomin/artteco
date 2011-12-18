@@ -7,24 +7,46 @@
 #include "file.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 struct file_state* file_init(struct file_state* file)
 {
-    file->chunks = (struct file_chunk*)malloc(sizeof(struct file_chunk));
-    file->chunks[0].lines = (struct file_line*)malloc(sizeof(struct file_line));
-    file->chunks[0].lines[0].size = 0;
-    file->chunks[0].lines[0].next = 0;
-    file->chunks[0].lines[0].prev = 0;
-    file->chunks[0].current = &file->chunks[0].lines[0];
-    file->chunks[0].start = 0;
-    file->chunks[0].end = -1;
+    list_init(sizeof(struct file_chunk), &file->chunks);
+    struct file_chunk* first_chunk = list_add_s(&file->chunks);
+    list_init(sizeof(struct file_line), &first_chunk->lines);
+    struct file_line* first_line = list_add_s(&first_chunk->lines);
+    first_line->size = 0;
+    first_chunk->current = first_line;
+    first_chunk->start = 0;
+    first_chunk->end = -1;
     file->file = 0;
     return file;
+}
+
+void rem_lines(void* elem)
+{
+    struct list_state* lines = (struct list_state*) elem;
+    list_clear(lines);
+}
+
+void file_close(struct file_state* file)
+{
+    list_clear_f(rem_lines, &file->chunks);
+    if(file->file) fclose(file->file);
 }
 
 struct file_state* file_load(const char* filename, struct file_state* file)
 {
     file->file = fopen(filename, "r+");
-    // todo
-    return file->file ? file : 0;
+    if(!file->file) return 0;
+    int i = 0;
+    struct file_chunk* chunk = list_get(0, &file->chunks);
+    struct file_line* line = list_get(0, &chunk->lines);
+    while(i < FILE_LINE_COUNT_SOFT && fgets(line->line, FILE_LINE_SIZE, file->file))
+    {
+        line->size = strlen(line->line);
+        i++;
+        line = list_add_s(&chunk->lines);
+    }
+    return file;
 }

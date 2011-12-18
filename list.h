@@ -10,8 +10,9 @@
 #define LIST_ELEM_NOTFOUND  0
 #define LIST_ELEM_FOUND     1
 
-typedef void everyFunc(void* elem);
 typedef int matchFunc(void* elem, void* param);
+typedef void mapFunc(void* elem);
+typedef void foldFunc(void* elem, void* akk);
 
 struct list_elem
 {
@@ -30,7 +31,10 @@ void* list_add_s(struct list_state* list);
 void* list_add(void* elem, struct list_state* list);
 int list_remove(matchFunc* f, void* param, struct list_state* list);
 void list_clear(struct list_state* list);
-void list_clear_f(everyFunc* f, struct list_state* list);
+void list_clear_f(mapFunc* f, struct list_state* list);
 void* list_find(matchFunc* f, void* param, struct list_state* list);
+void* list_get(int nth, struct list_state* list);
+struct list_state* list_map(mapFunc* f, struct list_state* list);
+struct list_state* list_fold(foldFunc* f, void* akk, struct list_state* list);
 
 #endif

@@ -24,7 +24,7 @@ void buffer_mgr_init(int alines)
 
 void buffer_mgr_finish()
 {
-    list_clear_f((everyFunc*)buffer_close, &buffer_list);
+    list_clear_f((mapFunc*)buffer_close, &buffer_list);
 }
 
 struct buffer_state* add(const char* name, int number, const char* file)
@@ -33,6 +33,7 @@ struct buffer_state* add(const char* name, int number, const char* file)
     buffer_init(name, number, lines, &buf);
     if(file) if(!buffer_load(file, &buf)) return 0;
     buffer_current = list_add(&buf, &buffer_list);
+    buffer_display(buffer_current);
     return buffer_current;
 }
 
@@ -43,7 +44,7 @@ struct buffer_state* buffer_mgr_add(const char* name)
 
 struct buffer_state* buffer_mgr_add_intern(const char* name)
 {
-    return add(name, ++count_intern, 0);
+    return add(name, --count_intern, 0);
 }
 
 struct buffer_state* buffer_mgr_add_file(const char* name, const char* file)
@@ -86,9 +87,10 @@ struct buffer_state* buffer_mgr_current()
 struct buffer_state* buffer_mgr_switch(int number)
 {
     struct buffer_state* buf = (struct buffer_state*) list_find(match_by_number, &number, &buffer_list);
-    if(buf)
+    if(buf && buf != buffer_current)
     {
         buffer_current = buf;
+        buffer_display(buf);
     }
     return buf;
 }

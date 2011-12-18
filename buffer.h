@@ -36,5 +36,7 @@ struct buffer_state* buffer_delete_str(int count, struct buffer_state* buffer);
 struct buffer_state* buffer_write_char(char c, struct buffer_state* buffer);
 struct buffer_state* buffer_delete_char(struct buffer_state* buffer);
 struct buffer_state* buffer_scroll(int lines, struct buffer_state* buffer);
+void buffer_display(struct buffer_state* buffer);
+int buffer_move_cursor(int amount, struct buffer_state* buffer);
 
 #endif

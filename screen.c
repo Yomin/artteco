@@ -19,27 +19,26 @@
 #define A_YELLOW_BLACK  COLOR_PAIR(5) | A_BOLD
 #define A_GREY_BLACK    COLOR_PAIR(6) | A_BOLD
 
-#define NEWPOS(y, x)    getyx(stdscr, tmp_y, tmp_x); move(y, x)
-#define OLDPOS()        move(tmp_y, tmp_x)
-#define WNEWPOS(y, x)   getyx(stdscr, tmp_y, tmp_x); wmove(win, y, x)
-#define WOLDPOS()       wmove(win, tmp_y, tmp_x)
+#define MOVE_PROMPT_FORWARD()   getyx(stdscr, tmp_y, tmp_x); move(tmp_y, tmp_x+1)
+#define MOVE_PROMPT_BACKWARD()  getyx(stdscr, tmp_y, tmp_x); move(tmp_y, tmp_x-1)
+#define MOVE_TEXT_FORWARD()     getyx(win, tmp_y, tmp_x); wmove(win, tmp_y, tmp_x+1)
+#define MOVE_TEXT_BACKWARD()    getyx(win, tmp_y, tmp_x); wmove(win, tmp_y, tmp_x-1)
+
+#define STORE_POS(win)      getyx(win, tmp_y, tmp_x);
+#define RESTORE_POS(win)    wmove(win, tmp_y, tmp_x);
 
 // FORWARDS
 
-void draw_status();
-void draw_msg();
-void draw_prompt();
-void draw_textcursor();
+void print(int y, int x, const char* line, chtype attr);
+void draw_cursor();
+void undraw_cursor();
 void resizeHandler(int sig);
 
 // VARIABLES
 
 WINDOW* win;
 int lines, columns;
-char status_line[80];
-char msg_line[80];
-int textcursor_pos_x, textcursor_pos_y;
-int tmp_x, tmp_y;
+int tmp_y, tmp_x;
 
 // EXTERNAL
 
@@ -48,9 +47,8 @@ void screen_init()
     initscr();
     refresh();
     
-    win = stdscr;
-    //~ win = newwin(LINES-3, COLS, 0, 0);
-    //~ wrefresh(win);
+    win = newwin(LINES-3, COLS, 0, 0);
+    scrollok(win, true);
     
     start_color();
     init_pair(1, COLOR_RED, COLOR_BLACK);
@@ -61,13 +59,13 @@ void screen_init()
     init_pair(7, COLOR_BLACK, COLOR_BLACK);
     
     getmaxyx(stdscr, lines, columns);
+    
     screen_set_status(" ART TECO");
-    screen_set_prompt("*");
-    textcursor_pos_x = 0;
-    textcursor_pos_y = 0;
-    draw_textcursor();
-    move(lines-1, 1);
+    screen_set_msg("");
+    screen_reset_prompt();
+    
     signal(SIGWINCH, resizeHandler);
+    
     noecho();
     raw();
 }
@@ -89,27 +87,66 @@ int screen_get_columns()
 
 void screen_update_size()
 {
-    endwin();
-    initscr();
-    getmaxyx(stdscr, lines, columns);
+    //~ endwin();
+    //~ initscr();
+    //~ getmaxyx(stdscr, lines, columns);
 }
 
-void screen_set_status(char* status)
+void screen_clear()
 {
-    strncpy(status_line, status, 80);
-    draw_status();
+    wclear(win);
 }
 
-void screen_set_msg(char* msg)
+void screen_refresh()
 {
-    strncpy(msg_line, msg, 80);
-    draw_msg();
+    wrefresh(win);
 }
 
-void screen_set_prompt(char* prompt)
+void screen_set_status(const char* status)
 {
-    draw_prompt();
+    print(lines-3, 0, status, A_WHITE_RED);
+}
+
+void screen_set_msg(const char* msg)
+{
+    print(lines-2, 0, msg, A_YELLOW_BLACK);
+}
+
+void screen_set_prompt(const char* prompt)
+{
+    print(lines-1, 0, prompt, A_RED_BLACK);
+}
+
+void screen_reset_prompt()
+{
+    print(lines-1, 0, "*", A_RED_BLACK);
     move(lines-1, 1);
+}
+
+void screen_set_line(int num, const char* line)
+{
+    wmove(win, num, 0);
+    wprintw(win, line);
+}
+
+void screen_set_cursor(int y, int x)
+{
+    wmove(win, y, x);
+    draw_cursor();
+}
+
+void screen_move_cursor(int dir)
+{
+    undraw_cursor();
+    getyx(win, tmp_y, tmp_x);
+    switch(dir)
+    {
+        case SCREEN_CURSOR_FORWARD:  wmove(win, tmp_y, tmp_x+1); break;
+        case SCREEN_CURSOR_BACKWARD: wmove(win, tmp_y, tmp_x-1); break;
+        case SCREEN_CURSOR_UP:       wmove(win, tmp_y-1, tmp_x); break;
+        case SCREEN_CURSOR_DOWN:     wmove(win, tmp_y+1, tmp_x); break;
+    }
+    draw_cursor();
 }
 
 void screen_input_prompt(char c, int type)
@@ -121,60 +158,53 @@ void screen_input_prompt(char c, int type)
         case SCREEN_INPUT_TYPE_TXT: att = A_WHITE_BLACK; break;
         case SCREEN_INPUT_TYPE_ESC: att = A_GREY_BLACK; break;
     }
-    if(c == '^') addch(c|att);
     addch(c|att);
+}
+
+void screen_input_prompt_r(char c, int type)
+{
+    screen_input_prompt(c, type);
+    refresh();
 }
 
 void screen_input_text(char c)
 {
-    WNEWPOS(textcursor_pos_y, textcursor_pos_x);
     winsch(win, c);
-    waddch(win, c|A_WHITE_BLACK);
+    MOVE_TEXT_FORWARD();
+}
+
+void screen_input_text_r(char c)
+{
+    screen_input_text(c);
     wrefresh(win);
-    getyx(stdscr, textcursor_pos_y, textcursor_pos_x);
-    OLDPOS();
 }
 
 void screen_delete_prompt()
 {
-    int y, x;
-    getyx(stdscr, y, x);
-    move(y, --x);
+    MOVE_PROMPT_BACKWARD();
     delch();
-    int count = 0;
-    move(y, x-1);
-    int c = inch()&A_CHARTEXT;
-    while(c == '^')
-    {
-        count++;
-        move(y, x-count-1);
-        c = inch()&A_CHARTEXT;
-    }
-    if(count % 2 == 1)
-    {
-        move(y, --x);
-        delch();
-    }
-    else
-    {
-        move(y, x);
-    }
+}
+
+void screen_delete_prompt_r()
+{
+    screen_delete_prompt();
+    refresh();
 }
 
 void screen_delete_text()
 {
-    textcursor_pos_x--;
-    WNEWPOS(textcursor_pos_y, textcursor_pos_x);
+    MOVE_TEXT_BACKWARD();
     wdelch(win);
-    //~ int c = winch(win);
-    //~ waddch(win, c|A_BLACK_GREEN);
+}
+
+void screen_delete_text_r()
+{
+    screen_delete_text();
     wrefresh(win);
-    OLDPOS();
 }
 
 void screen_scroll(int n)
 {
-    scrollok(win, true);
     wscrl(win, n);
     wrefresh(win);  
 }
@@ -183,52 +213,36 @@ void screen_scroll(int n)
 
 void resizeHandler(int sig)
 {
-    screen_update_size();
-    draw_status();
+    //~ screen_update_size();
+    //~ draw_status();
 }
 
 // INTERNAL
 
-void draw_status()
+void print(int y, int x, const char* line, chtype attr)
 {
-    NEWPOS(lines-3, 0);
-    attron(A_WHITE_RED);
-    printw("%s", status_line);
-    int count = columns - strlen(status_line);
+    STORE_POS(stdscr);
+    move(y, x);
+    attron(attr);
+    printw("%s", line);
+    int count = columns - strlen(line);
     while(count--) addch(' ');
-    attroff(A_WHITE_RED);
-    OLDPOS();
-    refresh();
+    attroff(attr);
+    RESTORE_POS(stdscr);
 }
 
-void draw_prompt()
+void draw_cursor()
 {
-    NEWPOS(lines-1, 0);
-    attron(A_RED_BLACK);
-    addch('*');
-    int count = columns - strlen(msg_line);
-    while(count--) addch(' ');
-    attroff(A_RED_BLACK);
-    OLDPOS();
-    refresh();
+    STORE_POS(win);
+    char c = winch(win) & A_CHARTEXT;
+    waddch(win, c | A_BLACK_GREEN);
+    RESTORE_POS(win);
 }
 
-void draw_textcursor()
+void undraw_cursor()
 {
-    WNEWPOS(textcursor_pos_y, textcursor_pos_x);
-    waddch(win, ' '|A_BLACK_GREEN);
-    OLDPOS();
-    wrefresh(win);
-}
-
-void draw_msg()
-{
-    NEWPOS(lines-2, 0);
-    attron(A_YELLOW_BLACK);
-    printw("%s", msg_line);
-    int count = columns - strlen(msg_line);
-    while(count--) addch(' ');
-    attroff(A_YELLOW_BLACK);
-    OLDPOS();
-    refresh();
+    STORE_POS(win);
+    char c = winch(win) & A_CHARTEXT;
+    waddch(win, c);
+    RESTORE_POS(win);
 }

@@ -88,7 +88,7 @@ int list_remove(matchFunc* f, void* param, struct list_state* list)
     }
 }
 
-void list_clear_f(everyFunc* f, struct list_state* list)
+void list_clear_f(mapFunc* f, struct list_state* list)
 {
     struct list_elem* current;
     struct list_elem* next = list->first;
@@ -120,4 +120,53 @@ void* list_find(matchFunc* f, void* param, struct list_state* list)
     {
         return 0;
     }
+}
+
+void* list_get(int nth, struct list_state* list)
+{
+    struct list_elem* current = list->first;
+    while(current && nth-- > 0) current = current->next;
+    if(current)
+    {
+        return current->elem;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+int map(void* elem, void* param)
+{
+    mapFunc* f = (mapFunc*) param;
+    f(elem);
+    return 0;
+}
+
+struct list_state* list_map(mapFunc* f, struct list_state* list)
+{
+    iterate(map, f, list);
+    return list;
+}
+
+struct fold_state
+{
+    foldFunc* f;
+    void* akk;
+};
+
+int fold(void* elem, void* param)
+{
+    struct fold_state* state = (struct fold_state*) param;
+    state->f(elem, state->akk);
+    return 0;
+}
+
+struct list_state* list_fold(foldFunc* f, void* akk, struct list_state* list)
+{
+    struct fold_state state;
+    state.f = f;
+    state.akk = akk;
+    iterate(fold, &state, list);
+    return list;
 }

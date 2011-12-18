@@ -22,6 +22,7 @@
 // FORWARDS
 
 struct cmd_ret std_escape_main(int given, int param);
+struct cmd_ret std_move_forward_main(int given, int param);
 struct cmd_ret std_insert_main(int given, int param);
 struct cmd_ret std_test_main(int given, int param);
 struct cmd_ret std_sub_main(int given, int param);
@@ -43,6 +44,7 @@ void cmd_init()
     table_current = TAB_STD;
     
     cmd_table[TAB_STD][27]  = std_escape_main;
+    cmd_table[TAB_STD]['c'] = std_move_forward_main;
     cmd_table[TAB_STD]['e'] = std_extra_main;
     cmd_table[TAB_STD]['i'] = std_insert_main;
     cmd_table[TAB_STD]['t'] = std_test_main;
@@ -82,7 +84,7 @@ struct cmd_ret empty(char* str);
 
 void empty_rubout()
 {
-    stack_push_sp(empty, parse_get_stk_func());
+    // nothing to do
 }
 
 struct cmd_ret empty(char* str)
@@ -100,10 +102,10 @@ void std_escape_rubout()
 {
     cmd_rubout* r;
     stack_pop(&r, parse_get_stk_rub());
+    r();
     cmd_exec* f;
     stack_pop(&f, parse_get_stk_rub());
     stack_push_s(&f, parse_get_stk_func());
-    r();
 }
 
 struct cmd_ret std_escape_main(int given, int param)
@@ -129,6 +131,34 @@ struct cmd_ret std_escape_main(int given, int param)
         }
         return r;
     }
+}
+
+// MOVE FORWARD
+// main:    move cursor given amount forward
+
+void std_move_forward_rubout()
+{
+    int amount;
+    stack_pop(&amount, parse_get_stk_rub());
+    buffer_move_cursor(-amount, buffer_mgr_current());
+}
+
+struct cmd_ret std_move_forward_main(int given, int param)
+{
+    switch(buffer_move_cursor(param, buffer_mgr_current()))
+    {
+        case 1:
+            screen_set_msg("buffer begin");
+            return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
+            break;
+        case 2:
+            screen_set_msg("buffer end");
+            return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
+            break;
+    }
+    stack_push(&param, sizeof(int), parse_get_stk_rub());
+    stack_push_p(std_move_forward_rubout, sizeof(cmd_rubout*), parse_get_stk_rub());
+    return ret(CMD_RET_SUCCESS, 0);
 }
 
 // INSERT
@@ -331,7 +361,6 @@ void extra_buffer_load_func_rubout()
     stack_pop(&previous, parse_get_stk_rub());
     buffer_mgr_switch(previous);
     buffer_mgr_delete(current);
-    stack_push_sp(extra_buffer_load_func, parse_get_stk_func());
 }
 
 struct cmd_ret extra_buffer_load_func(char* str)
