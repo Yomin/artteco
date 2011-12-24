@@ -14,6 +14,7 @@ struct list_state* list_init(int elemsize, struct list_state* list)
     list->elemsize = elemsize;
     list->first = 0;
     list->last = 0;
+    list->current = 0;
     return list;
 }
 
@@ -23,6 +24,7 @@ void* list_add(void* elem, struct list_state* list)
     lelem->elem = malloc(list->elemsize);
     lelem->next = 0;
     if(elem) memcpy(lelem->elem, elem, list->elemsize);
+    else memset(lelem->elem, 0, list->elemsize);
     if(!list->first)
     {
         list->first = lelem;
@@ -124,16 +126,48 @@ void* list_find(matchFunc* f, void* param, struct list_state* list)
 
 void* list_get(int nth, struct list_state* list)
 {
-    struct list_elem* current = list->first;
-    while(current && nth-- > 0) current = current->next;
-    if(current)
+    list->current = list->first;
+    while(list->current && nth-- > 0) list->current = list->current->next;
+    if(list->current)
     {
-        return current->elem;
+        return list->current->elem;
     }
     else
     {
         return 0;
     }
+}
+
+void* list_current(struct list_state* list)
+{
+    if(!list->current) return 0;
+    return list->current->elem;
+}
+
+void* list_next(struct list_state* list)
+{
+    if(!list->current || !list->current->next) return 0;
+    list->current = list->current->next;
+    return list->current->elem;
+}
+
+void* list_next_s(struct list_state* list)
+{
+    if(!list->current || !list->current->next) return 0;
+    return list->current->next->elem;
+}
+
+void* list_prev(struct list_state* list)
+{
+    if(!list->current || !list->current->prev) return 0;
+    list->current = list->current->prev;
+    return list->current->elem;
+}
+
+void* list_prev_s(struct list_state* list)
+{
+    if(!list->current || !list->current->prev) return 0;
+    return list->current->prev->elem;
 }
 
 int map(void* elem, void* param)

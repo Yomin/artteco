@@ -9,16 +9,15 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include <ncurses.h>
 
 // DEFINES
 
-#define min(x,y) (x<y ? x : y)
+#define MIN(x,y) ((x)<(y) ? (x) : (y))
 
 struct load_state
 {
-    int counter, lines, columns;
-    struct line_info* info;
+    int counter, numlines, numcolumns;
+    struct buffer_line* lines;
 };
 
 // FORWARDS
@@ -27,15 +26,23 @@ void load_lines(void* elem, void* akk);
 
 // EXTERNAL
 
-struct buffer_state* buffer_init(const char* name, int number, int lines, struct buffer_state* buffer)
+struct buffer_state* buffer_init(const char* name, int number, struct buffer_state* buffer)
 {
     strncpy(buffer->name, name, BUFFER_NAME_SIZE-1);
-    buffer->name[min(strlen(name), BUFFER_NAME_SIZE-1)] = 0;
+    buffer->name[MIN(strlen(name), BUFFER_NAME_SIZE-1)] = 0;
     buffer->number = number;
-    buffer->lines = (struct line_info*) malloc(lines*sizeof(struct line_info));
-    memset(buffer->lines, 0, lines*sizeof(struct line_info));
+    
+    int lines = screen_get_lines();
+    buffer->lines = (struct buffer_line*) malloc(lines*sizeof(struct buffer_line));
+    memset(buffer->lines, 0, lines*sizeof(struct buffer_line));
+    buffer->lines[0].status |= BUFFER_STATUS_LAST;
+
     stack_init(STACK_MODE_SIMPLE, sizeof(char), &buffer->stack);
+    
     file_init(&buffer->file);
+    list_get(0, &buffer->file.chunks); // set current
+    buffer->linenumber = 0;
+    
     return buffer;
 }
 
@@ -49,7 +56,20 @@ struct buffer_state* buffer_load(const char* file, struct buffer_state* buffer)
 {
     struct file_state* fs = file_load(file, &buffer->file);
     if(!fs) return 0;
-    buffer_display(buffer);
+    
+    struct file_chunk* chunk = list_get(0, &buffer->file.chunks);
+    
+    struct load_state state;
+    state.counter = 0;
+    state.numlines = screen_get_lines();
+    state.numcolumns = screen_get_columns();
+    state.lines = buffer->lines;
+    
+    buffer->lines[0].status = 0;
+    list_fold(load_lines, &state, &chunk->lines);
+    buffer->lines[state.counter].status |= BUFFER_STATUS_LAST;
+    buffer->lines[state.counter].status &= ~BUFFER_STATUS_CONTINUE;
+    
     return buffer;
 }
 
@@ -99,15 +119,47 @@ void buffer_display(struct buffer_state* buffer)
 {
     screen_clear();
     
-    struct file_chunk* chunk = list_get(0, &buffer->file.chunks);
+    int i, max = screen_get_lines();
+    struct file_chunk* chunk = (struct file_chunk*) list_current(&buffer->file.chunks);
+    struct file_line* f_line = (struct file_line*) list_get(buffer->linenumber, &chunk->lines);
     
-    struct load_state state;
-    state.counter = 0;
-    state.lines = screen_get_lines();
-    state.columns = screen_get_columns();
-    state.info = buffer->lines;
-    
-    list_fold(load_lines, &state, &chunk->lines);
+    for(i=0;i<max;i++)
+    {
+        struct buffer_line* b_line = &buffer->lines[i];
+        
+        int offset = 0;
+        int size = b_line->size;
+        char* ptr = &f_line->line[b_line->offset];
+        
+        if(b_line->status & BUFFER_STATUS_CONTINUE)
+        {
+            screen_set_line(i, ptr);
+            offset = f_line->size - b_line->offset;
+            size = b_line->size - offset;
+            if(!(f_line = (struct file_line*) list_next(&chunk->lines)))
+            {
+                chunk = (struct file_chunk*) list_next_s(&buffer->file.chunks);
+                f_line = (struct file_line*) list_get(0, &chunk->lines);
+            }
+            ptr = f_line->line;
+        }
+        
+        char tmp = ptr[size];
+        ptr[size] = 0;
+        screen_set_line_o(i, offset, ptr);
+        ptr[size] = tmp;
+        
+        if(b_line->status & BUFFER_STATUS_LAST) break;
+        
+        if(b_line->status & BUFFER_STATUS_EXHAUSTED)
+        {
+            if(!(f_line = (struct file_line*) list_next(&chunk->lines)))
+            {
+                chunk = (struct file_chunk*) list_next_s(&buffer->file.chunks);
+                f_line = (struct file_line*) list_get(0, &chunk->lines);
+            }
+        }
+    }
     
     screen_set_cursor(0, 0);
     screen_refresh();
@@ -128,36 +180,61 @@ void load_lines(void* elem, void* akk)
 {
     struct load_state* state = (struct load_state*) akk;
     struct file_line* line = (struct file_line*) elem;
-    if(state->counter == state->lines) return;
+    if(!state->lines) return;   // already done
     
-    int i = 0, j = state->info[state->counter].size;
-    char* start = line->line;
+    int i = 0, offset = 0, size = state->lines[state->counter].size;
     
-    for(; i < line->size; i++, j++)
+    for(; i < line->size; i++, size++)
     {
-        if(line->line[i] == '\n' || j == state->columns)
+        if(line->line[i] == '\n' || size == state->numcolumns)
         {
-            char tmp = line->line[i];
-            line->line[i] = 0;
-            screen_set_line(state->counter, start);
-            line->line[i] = tmp;
-            start = line->line+i;
+            state->lines[state->counter].size = size;
             
-            state->info[state->counter].newline = line->line[i] == '\n';
-            state->info[state->counter].size = j;
-            state->info[state->counter].ptr = start;
+            if(state->lines[state->counter].status & BUFFER_STATUS_CONTINUE)
+            {
+                if(i == 0)
+                {
+                    state->lines[state->counter].status &= ~BUFFER_STATUS_CONTINUE;
+                    state->lines[state->counter].status |= BUFFER_STATUS_EXHAUSTED;
+                }
+            }
+            else
+            {
+                state->lines[state->counter].offset = offset;
+            }
             
-            j = 0;
+            if(line->line[i] == '\n')
+            {
+                state->lines[state->counter].status |= BUFFER_STATUS_NEWLINE;
+                offset = i+1;   // forget newline
+                size = -1;      // "
+            }
+            else
+            {
+                offset = i;     // already on next char
+                size = 0;       // "
+            }
+            
             state->counter++;
-            if(state->counter == state->lines) return;
+            if(state->counter == state->numlines)
+            {
+                state->lines = 0;   // remember done
+                return;
+            }
+            
+            state->lines[state->counter].status = 0;
         }
     }
-    if(start < line->line+i)
+    
+    if(offset == i)
     {
-        line->line[i] = 0;
-        screen_set_line(state->counter, start);
-        state->info[state->counter].newline = 0;
-        state->info[state->counter].size = j;
-        state->info[state->counter].ptr = start;
+        state->lines[state->counter].status |= BUFFER_STATUS_EXHAUSTED;
+    }
+    else if(offset < i)
+    {
+        state->lines[state->counter].status |= BUFFER_STATUS_CONTINUE;
+        state->lines[state->counter].size = size;
+        state->lines[state->counter].offset = offset;
     }
 }
+

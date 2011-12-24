@@ -7,6 +7,7 @@
 #include "file.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 struct file_state* file_init(struct file_state* file)
@@ -16,7 +17,6 @@ struct file_state* file_init(struct file_state* file)
     list_init(sizeof(struct file_line), &first_chunk->lines);
     struct file_line* first_line = list_add_s(&first_chunk->lines);
     first_line->size = 0;
-    first_chunk->current = first_line;
     first_chunk->start = 0;
     first_chunk->end = -1;
     file->file = 0;
@@ -42,11 +42,13 @@ struct file_state* file_load(const char* filename, struct file_state* file)
     int i = 0;
     struct file_chunk* chunk = list_get(0, &file->chunks);
     struct file_line* line = list_get(0, &chunk->lines);
-    while(i < FILE_LINE_COUNT_SOFT && fgets(line->line, FILE_LINE_SIZE, file->file))
+    do
     {
-        line->size = strlen(line->line);
-        i++;
+        line->size = fread(line->line, 1, FILE_LINE_SIZE, file->file);
+        if(feof(file->file)) break;
         line = list_add_s(&chunk->lines);
+        i++;
     }
+    while(i < FILE_LINE_COUNT_SOFT);
     return file;
 }

@@ -32,6 +32,7 @@ void screen_set_prompt(const char* prompt);
 void screen_reset_prompt();
 
 void screen_set_line(int num, const char* line);
+void screen_set_line_o(int num, int offset, const char* line);
 void screen_set_cursor(int y, int x);
 void screen_move_cursor(int dir);
 

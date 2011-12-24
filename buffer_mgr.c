@@ -9,13 +9,12 @@
 
 #include <string.h>
 
-int lines, count_intern, count_buffer;
+int count_intern, count_buffer;
 struct list_state buffer_list;
 struct buffer_state* buffer_current;
 
-void buffer_mgr_init(int alines)
+void buffer_mgr_init()
 {
-    lines = alines;
     list_init(sizeof(struct buffer_state), &buffer_list);
     buffer_current = buffer_mgr_add_intern("TECO-Main");
     count_intern = 0;
@@ -30,7 +29,7 @@ void buffer_mgr_finish()
 struct buffer_state* add(const char* name, int number, const char* file)
 {
     struct buffer_state buf;
-    buffer_init(name, number, lines, &buf);
+    buffer_init(name, number, &buf);
     if(file) if(!buffer_load(file, &buf)) return 0;
     buffer_current = list_add(&buf, &buffer_list);
     buffer_display(buffer_current);

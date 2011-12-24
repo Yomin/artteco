@@ -1,10 +1,21 @@
-.PHONY: all, clean
+.PHONY: all, clean, debug, crash
+
+CC = gcc
+CFLAGS = -Wall
+LIBS = -l ncurses
+SOURCES = *.c
+
+NAME = artteco
 
 all:
-	gcc -Wall -o artteco -l ncurses *.c -D NDEBUG
+	$(CC) $(CFLAGS) $(LIBS) -o $(NAME) -D NDEBUG $(SOURCES)
 
 debug:
-	gcc -Wall -g -o artteco -l ncurses *.c
+	$(CC) $(CFLAGS) $(LIBS) -o $(NAME) -g $(SOURCES)
+
+crash:
+	$(CC) $(CFLAGS) $(LIBS) -o $(NAME) -g -D FLUSH $(SOURCES)
 
 clean:
-	rm -rf artteco
+	rm -rf $(NAME)
+

@@ -22,7 +22,7 @@ struct list_elem
 
 struct list_state
 {
-    struct list_elem *first, *last;
+    struct list_elem *first, *last, *current;
     int elemsize;
 };
 
@@ -34,6 +34,11 @@ void list_clear(struct list_state* list);
 void list_clear_f(mapFunc* f, struct list_state* list);
 void* list_find(matchFunc* f, void* param, struct list_state* list);
 void* list_get(int nth, struct list_state* list);
+void* list_current(struct list_state* list);
+void* list_next(struct list_state* list);
+void* list_next_s(struct list_state* list);
+void* list_prev(struct list_state* list);
+void* list_prev_s(struct list_state* list);
 struct list_state* list_map(mapFunc* f, struct list_state* list);
 struct list_state* list_fold(foldFunc* f, void* akk, struct list_state* list);
 

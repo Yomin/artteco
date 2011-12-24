@@ -25,7 +25,6 @@ struct file_line
 struct file_chunk
 {
     int start, end;
-    struct file_line *current;
     struct list_state lines;
 };
 

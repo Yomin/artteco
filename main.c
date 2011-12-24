@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
 {
     DEBUG_START();
     screen_init();
-    buffer_mgr_init(screen_get_lines());
+    buffer_mgr_init();
     cmd_init();
     parse_init();
     int ret = parse_start();

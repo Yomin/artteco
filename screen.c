@@ -123,10 +123,15 @@ void screen_reset_prompt()
     move(lines-1, 1);
 }
 
+void screen_set_line_o(int num, int offset, const char* line)
+{
+    wmove(win, num, offset);
+    wprintw(win, line);
+}
+
 void screen_set_line(int num, const char* line)
 {
-    wmove(win, num, 0);
-    wprintw(win, line);
+    screen_set_line_o(num, 0, line);
 }
 
 void screen_set_cursor(int y, int x)

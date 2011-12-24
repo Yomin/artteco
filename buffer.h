@@ -12,23 +12,28 @@
 
 #define BUFFER_NAME_SIZE 80
 
-struct line_info
+#define BUFFER_STATUS_NEWLINE   1   // contains newline
+#define BUFFER_STATUS_CONTINUE  2   // continues to next file line
+#define BUFFER_STATUS_EXHAUSTED 4   // fills rest of file line
+#define BUFFER_STATUS_LAST      8   // last line to display
+
+struct buffer_line
 {
-    int newline;
-    int size;
-    char* ptr;
+    int status; // line properties
+    int offset; // character offset in file line
+    int size;   // size of buffer line
 };
 
 struct buffer_state
 {
     char name[BUFFER_NAME_SIZE];
-    int number;
-    struct line_info* lines;
+    int number, linenumber;
+    struct buffer_line* lines;
     struct stack_state stack;
     struct file_state file;
 };
 
-struct buffer_state* buffer_init(const char* name, int number, int lines, struct buffer_state* buffer);
+struct buffer_state* buffer_init(const char* name, int number, struct buffer_state* buffer);
 void buffer_close(struct buffer_state* buffer);
 struct buffer_state* buffer_load(const char* file, struct buffer_state* buffer);
 struct buffer_state* buffer_write_str(const char* str, struct buffer_state* buffer);

@@ -13,7 +13,7 @@
 #define BUFFER_DELETE_FOUND     1
 #define BUFFER_DELETE_FORBIDDEN 2
 
-void buffer_mgr_init(int alines);
+void buffer_mgr_init();
 void buffer_mgr_finish();
 
 struct buffer_state* buffer_mgr_add(const char* name);
