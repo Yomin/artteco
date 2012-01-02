@@ -22,15 +22,18 @@ struct cmd_ret
 };
 
 typedef struct cmd_ret cmd_main(int given, int param);  // cmd initialize function
-typedef struct cmd_ret cmd_exec(char* str);             // cmd execute function
+typedef struct cmd_ret cmd_func(char* str);             // cmd execute function
 typedef int cmd_after();                                // after prompt finish function
-typedef void cmd_rubout();                              // cmd rubout function
 typedef void cmd_ecf(char c);                           // every char function
+
+// Extern
 
 void cmd_init();
 void cmd_finish();
+
 cmd_main* cmd_lookup(char c);
 
 void cmd_reset_table();
+void cmd_switch_table(int table);
 
 #endif

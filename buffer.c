@@ -6,6 +6,7 @@
 
 #include "buffer.h"
 #include "screen.h"
+#include "rubout.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -24,6 +25,9 @@ struct load_state
 
 void load_lines(void* elem, void* akk);
 
+struct buffer_state* buffer_write(const char* str, struct buffer_state* buffer);
+struct buffer_state* buffer_delete(int count, struct buffer_state* buffer);
+
 // EXTERNAL
 
 struct buffer_state* buffer_init(const char* name, int number, struct buffer_state* buffer)
@@ -32,7 +36,7 @@ struct buffer_state* buffer_init(const char* name, int number, struct buffer_sta
     buffer->name[MIN(strlen(name), BUFFER_NAME_SIZE-1)] = 0;
     buffer->number = number;
     
-    int lines = screen_get_lines();
+    int lines = screen_get_buffer_lines();
     buffer->lines = (struct buffer_line*) malloc(lines*sizeof(struct buffer_line));
     memset(buffer->lines, 0, lines*sizeof(struct buffer_line));
     buffer->lines[0].status |= BUFFER_STATUS_LAST;
@@ -61,8 +65,8 @@ struct buffer_state* buffer_load(const char* file, struct buffer_state* buffer)
     
     struct load_state state;
     state.counter = 0;
-    state.numlines = screen_get_lines();
-    state.numcolumns = screen_get_columns();
+    state.numlines = screen_get_buffer_lines();
+    state.numcolumns = screen_get_buffer_columns();
     state.lines = buffer->lines;
     
     buffer->lines[0].status = 0;
@@ -73,16 +77,21 @@ struct buffer_state* buffer_load(const char* file, struct buffer_state* buffer)
     return buffer;
 }
 
+void buffer_write_str_rubout()
+{
+    struct buffer_state* buffer;
+    int len;
+    rubout_load(&buffer);
+    rubout_load(&len);
+    buffer_delete(len, buffer);
+}
+
 struct buffer_state* buffer_write_str(const char* str, struct buffer_state* buffer)
 {
-    while(*str)
-    {
-        // buffer todo
-        screen_input_text(*str);
-        str++;
-    }
-    screen_refresh();
-    return buffer;
+    int len = strlen(str);
+    rubout_save(&len, sizeof(int));
+    rubout_register(buffer_write_str_rubout, &buffer, sizeof(struct buffer_state*));
+    return buffer_write(str, buffer);
 }
 
 struct buffer_state* buffer_write_char(char c, struct buffer_state* buffer)
@@ -93,16 +102,18 @@ struct buffer_state* buffer_write_char(char c, struct buffer_state* buffer)
     return buffer_write_str((const char*)&str, buffer);
 }
 
+void buffer_delete_str_rubout()
+{
+    struct buffer_state* buffer;
+    rubout_load(&buffer);
+    // load/insert characters
+}
+
 struct buffer_state* buffer_delete_str(int count, struct buffer_state* buffer)
 {
-    while(count > 0)
-    {
-        // buffer todo
-        screen_delete_text();
-        count--;
-    }
-    screen_refresh();
-    return buffer;
+    // get characters
+    rubout_register(buffer_delete_str_rubout, &buffer, sizeof(struct buffer_state*));
+    return buffer_delete(count, buffer);
 }
 
 struct buffer_state* buffer_delete_char(struct buffer_state* buffer)
@@ -110,8 +121,17 @@ struct buffer_state* buffer_delete_char(struct buffer_state* buffer)
     return buffer_delete_str(1, buffer);
 }
 
+void buffer_scroll_rubout()
+{
+    int lines;
+    rubout_load(&lines);
+    // todo
+}
+
 struct buffer_state* buffer_scroll(int lines, struct buffer_state* buffer)
 {
+    // todo
+    rubout_register(buffer_scroll_rubout, &lines, sizeof(int));
     return buffer;
 }
 
@@ -119,7 +139,7 @@ void buffer_display(struct buffer_state* buffer)
 {
     screen_clear();
     
-    int i, max = screen_get_lines();
+    int i, max = screen_get_buffer_lines();
     struct file_chunk* chunk = (struct file_chunk*) list_current(&buffer->file.chunks);
     struct file_line* f_line = (struct file_line*) list_get(buffer->linenumber, &chunk->lines);
     
@@ -165,12 +185,22 @@ void buffer_display(struct buffer_state* buffer)
     screen_refresh();
 }
 
+void buffer_move_cursor_rubout()
+{
+    int amount;
+    rubout_load(&amount);
+    if(amount < 0) screen_move_cursor(SCREEN_CURSOR_FORWARD);
+    if(amount > 0) screen_move_cursor(SCREEN_CURSOR_BACKWARD);
+    screen_refresh();
+}
+
 int buffer_move_cursor(int amount, struct buffer_state* buffer)
 {
     // todo
     if(amount > 0) screen_move_cursor(SCREEN_CURSOR_FORWARD);
     if(amount < 0) screen_move_cursor(SCREEN_CURSOR_BACKWARD);
     screen_refresh();
+    rubout_register(buffer_move_cursor_rubout, &amount, sizeof(int));
     return 0;
 }
 
@@ -238,3 +268,26 @@ void load_lines(void* elem, void* akk)
     }
 }
 
+struct buffer_state* buffer_write(const char* str, struct buffer_state* buffer)
+{
+    while(*str)
+    {
+        // buffer todo
+        screen_input_text(*str);
+        str++;
+    }
+    screen_refresh();
+    return buffer;
+}
+
+struct buffer_state* buffer_delete(int count, struct buffer_state* buffer)
+{
+    while(count > 0)
+    {
+        // buffer todo
+        screen_delete_text();
+        count--;
+    }
+    screen_refresh();
+    return buffer;
+}
