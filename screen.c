@@ -67,7 +67,7 @@ void screen_init()
     signal(SIGWINCH, resizeHandler);
     
     noecho();
-    raw();
+    //~ raw();
 }
 
 void screen_finish()
@@ -81,6 +81,16 @@ int screen_get_lines()
 }
 
 int screen_get_columns()
+{
+    return columns;
+}
+
+int screen_get_buffer_lines()
+{
+    return lines-3;
+}
+
+int screen_get_buffer_columns()
 {
     return columns;
 }

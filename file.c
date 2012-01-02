@@ -38,7 +38,8 @@ void file_close(struct file_state* file)
 struct file_state* file_load(const char* filename, struct file_state* file)
 {
     file->file = fopen(filename, "r+");
-    if(!file->file) return 0;
+    if(!file->file || strlen(filename) > FILE_NAME_SIZE-1) return 0;
+    strcpy(file->name, filename);
     int i = 0;
     struct file_chunk* chunk = list_get(0, &file->chunks);
     struct file_line* line = list_get(0, &chunk->lines);

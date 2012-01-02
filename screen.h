@@ -25,6 +25,8 @@ void screen_refresh();
 
 int screen_get_lines();
 int screen_get_columns();
+int screen_get_buffer_lines();
+int screen_get_buffer_columns();
 
 void screen_set_status(const char* status);
 void screen_set_msg(const char* msg);

@@ -16,6 +16,8 @@
 #define FILE_LINE_COUNT_HARD 128    // up to 16KB
 #define FILE_CHUNK_COUNT 32         // up to 512KB
 
+#define FILE_NAME_SIZE 80
+
 struct file_line
 {
     char line[FILE_LINE_SIZE+1];
@@ -31,6 +33,7 @@ struct file_chunk
 struct file_state
 {
     FILE* file;
+    char name[FILE_NAME_SIZE];
     struct list_state chunks;
 };
 

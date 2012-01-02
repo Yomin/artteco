@@ -28,7 +28,7 @@ void debug_log(const char* func, const char* format, ...)
     fputs(func, file);
     fputs(": ", file);
     vfprintf(file, format, arglist);
-    fputs("#\n", file);
+    fputs("\n", file);
     va_end(arglist);
     #ifdef FLUSH
         fflush(file);
