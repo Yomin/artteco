@@ -11,6 +11,7 @@ struct stack_state* stack_init(int mode, int size, struct stack_state* stack)
 {
     stack->mode = mode;
     stack->size = size;
+    stack->base = stack->stack;
     stack->ptr = stack->stack;
     stack->stack[0] = 0;
     return stack;
@@ -21,7 +22,7 @@ struct stack_state* stack_init_s(struct stack_state* stack)
     return stack_init(STACK_MODE_EXT, sizeof(char), stack);
 }
 
-struct stack_state* stack_push(void* elem, int size, struct stack_state* stack)
+void* stack_push(void* elem, int size, struct stack_state* stack)
 {
     int ext = stack->mode == STACK_MODE_EXT;
     int extsize = ext ? sizeof(int) : 0;
@@ -29,7 +30,8 @@ struct stack_state* stack_push(void* elem, int size, struct stack_state* stack)
     {
         return 0;
     }
-    memcpy(stack->ptr, elem, size);
+    if(elem) memcpy(stack->ptr, elem, size);
+    char* ptr = stack->ptr;
     stack->ptr += size;
     if(ext)
     {
@@ -37,31 +39,29 @@ struct stack_state* stack_push(void* elem, int size, struct stack_state* stack)
         stack->ptr += sizeof(int);
     }
     *(stack->ptr) = 0;
-    return stack;
+    return ptr;
 }
 
-struct stack_state* stack_push_p(void* elemptr, int size, struct stack_state* stack)
+void* stack_push_p(void* elemptr, int size, struct stack_state* stack)
 {
-    void* ptr = elemptr;
-    return stack_push(&ptr, size, stack);
+    return stack_push(&elemptr, size, stack);
 }
 
-struct stack_state* stack_push_s(void* elem, struct stack_state* stack)
+void* stack_push_s(void* elem, struct stack_state* stack)
 {
     return stack_push(elem, stack->size, stack);
 }
 
-struct stack_state* stack_push_sp(void* elemptr, struct stack_state* stack)
+void* stack_push_sp(void* elemptr, struct stack_state* stack)
 {
-    void* ptr = elemptr;
-    return stack_push(&ptr, stack->size, stack);
+    return stack_push(&elemptr, stack->size, stack);
 }
 
-struct stack_state* stack_pop(void* dst, struct stack_state* stack)
+int stack_pop(void* dst, struct stack_state* stack)
 {
     if(stack->ptr == stack->stack)
     {
-        return 0;
+        return -1;
     }
     int size;
     if(stack->mode == STACK_MODE_EXT)
@@ -76,34 +76,42 @@ struct stack_state* stack_pop(void* dst, struct stack_state* stack)
     }
     if(dst) memcpy(dst, stack->ptr, size);
     *(stack->ptr) = 0;
-    return stack;
+    return size;
 }
 
 struct stack_state* stack_pop_s(struct stack_state* stack)
 {
-    return stack_pop(0, stack);
+    if(stack_pop(0, stack) >= 0) return stack;
+    else return 0;
 }
 
-struct stack_state* stack_top(void* dst, struct stack_state* stack)
+struct stack_elem stack_top_p(struct stack_state* stack)
 {
+    struct stack_elem elem;
     if(stack->ptr == stack->stack)
     {
-        return 0;
+        elem.ptr = 0;
+        return elem;
     }
-    int size;
-    char* ptr;
     if(stack->mode == STACK_MODE_EXT)
     {
-        memcpy(&size, stack->ptr-sizeof(int), sizeof(int));
-        ptr = stack->ptr-sizeof(int)-size;
+        memcpy(&elem.size, stack->ptr-sizeof(int), sizeof(int));
+        elem.ptr = stack->ptr-sizeof(int)-elem.size;
     }
     else
     {
-        size = stack->size;
-        ptr = stack->ptr-stack->size;
+        elem.size = stack->size;
+        elem.ptr = stack->ptr-stack->size;
     }
-    memcpy(dst, ptr, size);
-    return stack;
+    return elem;
+}
+
+int stack_top(void* dst, struct stack_state* stack)
+{
+    struct stack_elem elem = stack_top_p(stack);
+    if(!elem.ptr) return -1;
+    memcpy(dst, elem.ptr, elem.size);
+    return elem.size;
 }
 
 int stack_empty(struct stack_state* stack)
@@ -111,9 +119,25 @@ int stack_empty(struct stack_state* stack)
     return stack->ptr == stack->stack;
 }
 
+int stack_empty_b(struct stack_state* stack)
+{
+    return stack->ptr == stack->base;
+}
+
 void* stack_get_base(struct stack_state* stack)
 {
-    return stack->stack;
+    return stack->base;
+}
+
+void* stack_get_ptr(struct stack_state* stack)
+{
+    return stack->ptr;
+}
+
+struct stack_state* stack_set_base(void* ptr, struct stack_state* stack)
+{
+    stack->base = ptr;
+    return stack;
 }
 
 int stack_get_size(struct stack_state* stack)
@@ -141,3 +165,18 @@ struct stack_state* stack_set_size(int size, struct stack_state* stack)
     stack->ptr = stack->stack+size;
     return stack;
 }
+
+struct stack_state* stack_set_func(stack_func* f, struct stack_state* stack)
+{
+    stack->func = f;
+    return stack;
+}
+
+int stack_exec(struct stack_state* stack)
+{
+    if(!stack->func) return STACK_EXEC_FAILURE;
+    struct stack_elem elem = stack_top_p(stack);
+    if(!elem.ptr) return STACK_EXEC_FAILURE;
+    return stack->func(elem.ptr, elem.size);
+}
+
