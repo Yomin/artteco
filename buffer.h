@@ -13,7 +13,7 @@
 #define BUFFER_NAME_SIZE 80
 
 #define BUFFER_STATUS_NEWLINE   1   // contains newline
-#define BUFFER_STATUS_CONTINUE  2   // continues to next file line
+#define BUFFER_STATUS_CONTINUED 2   // continues to next file line
 #define BUFFER_STATUS_EXHAUSTED 4   // fills rest of file line
 #define BUFFER_STATUS_LAST      8   // last line to display
 

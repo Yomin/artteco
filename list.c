@@ -9,6 +9,50 @@
 #include <string.h>
 #include <stdlib.h>
 
+// FORWARDS
+
+// DEFINES
+
+struct fold_state
+{
+    foldFunc* f;
+    void* akk;
+};
+
+// VARIABLES
+
+// INTERNAL
+
+struct list_elem* iterate(matchFunc* f, void* param, struct list_state* list)
+{
+    struct list_elem* current = list->first;
+    while(current)
+    {
+        if(f(current->elem, param))
+        {
+            return current;
+        }
+        current = current->next;
+    }
+    return 0;
+}
+
+int map(void* elem, void* param)
+{
+    mapFunc* f = (mapFunc*) param;
+    f(elem);
+    return 0;
+}
+
+int fold(void* elem, void* param)
+{
+    struct fold_state* state = (struct fold_state*) param;
+    state->f(elem, state->akk);
+    return 0;
+}
+
+// EXTERNAL
+
 struct list_state* list_init(int elemsize, struct list_state* list)
 {
     list->elemsize = elemsize;
@@ -43,20 +87,6 @@ void* list_add(void* elem, struct list_state* list)
 void* list_add_s(struct list_state* list)
 {
     return list_add(0, list);
-}
-
-struct list_elem* iterate(matchFunc* f, void* param, struct list_state* list)
-{
-    struct list_elem* current = list->first;
-    while(current)
-    {
-        if(f(current->elem, param))
-        {
-            return current;
-        }
-        current = current->next;
-    }
-    return 0;
 }
 
 int list_remove(matchFunc* f, void* param, struct list_state* list)
@@ -170,30 +200,10 @@ void* list_prev_s(struct list_state* list)
     return list->current->prev->elem;
 }
 
-int map(void* elem, void* param)
-{
-    mapFunc* f = (mapFunc*) param;
-    f(elem);
-    return 0;
-}
-
 struct list_state* list_map(mapFunc* f, struct list_state* list)
 {
     iterate(map, f, list);
     return list;
-}
-
-struct fold_state
-{
-    foldFunc* f;
-    void* akk;
-};
-
-int fold(void* elem, void* param)
-{
-    struct fold_state* state = (struct fold_state*) param;
-    state->f(elem, state->akk);
-    return 0;
 }
 
 struct list_state* list_fold(foldFunc* f, void* akk, struct list_state* list)

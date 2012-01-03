@@ -48,7 +48,6 @@ void screen_init()
     refresh();
     
     win = newwin(LINES-3, COLS, 0, 0);
-    scrollok(win, true);
     
     start_color();
     init_pair(1, COLOR_RED, COLOR_BLACK);
@@ -73,6 +72,26 @@ void screen_init()
 void screen_finish()
 {
     endwin();
+}
+
+void screen_logo()
+{
+    char* line[7];
+    line[0] = "      ________________________________________";
+    line[1] = "     /   |          /  /        \\      \\      \\";
+    line[2] = "    / __ |  ____   /  /___   ____\\   ___\\  ___ \\";
+    line[3] = "   /     |        /      /  /  _  \\  \\   \\ \\  \\ \\";
+    line[4] = "  /  __  |  __   /  ____/  /     __\\  \\___\\ \\  \\ \\";
+    line[5] = " /  / |  |  \\ \\  \\     /  /\\       /\\      \\      \\";
+    line[6] = "/__/  |__|___\\ \\__\\___/__/  \\_____/  \\______\\______\\";
+    
+    int i, starty = lines/4, startx = columns/2-strlen(line[6])/2;
+    
+    wattron(win, A_RED_BLACK);
+    for(i=0; i<7; i++) mvwprintw(win, starty+i, startx, line[i]);
+    wattroff(win, A_RED_BLACK);
+    
+    wrefresh(win);
 }
 
 int screen_get_lines()
@@ -239,7 +258,7 @@ void print(int y, int x, const char* line, chtype attr)
     STORE_POS(stdscr);
     move(y, x);
     attron(attr);
-    printw("%s", line);
+    printw(line);
     int count = columns - strlen(line);
     while(count--) addch(' ');
     attroff(attr);

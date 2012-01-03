@@ -16,20 +16,26 @@
 int main(int argc, char *argv[])
 {
     DEBUG_START();
-    rubout_init();
     screen_init();
+    
+    screen_logo();
+    char c = getch();
+    screen_clear();
+    screen_refresh();
+    
+    rubout_init();
     buffer_mgr_init();
     cmd_init();
     parse_init();
     
-    int ret = -1;
+    int ret = parse_input(c);
     while(ret < 0) ret = parse_input(getch());
     
     parse_finish();
     cmd_finish();
     buffer_mgr_finish();
-    screen_finish();
     rubout_finish();
+    screen_finish();
     DEBUG_STOP();
     
     return ret;

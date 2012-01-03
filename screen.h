@@ -18,6 +18,7 @@
 
 void screen_init();
 void screen_finish();
+void screen_logo();
 
 void screen_update_size();
 void screen_clear();

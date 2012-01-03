@@ -320,6 +320,7 @@ int process_cmd(char c)
     if(!f)
     {
         screen_set_msg("unknown cmd");
+        return STATUS_FAILURE;
     }
     else
     {

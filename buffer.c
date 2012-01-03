@@ -72,7 +72,10 @@ struct buffer_state* buffer_load(const char* file, struct buffer_state* buffer)
     buffer->lines[0].status = 0;
     list_fold(load_lines, &state, &chunk->lines);
     buffer->lines[state.counter].status |= BUFFER_STATUS_LAST;
-    buffer->lines[state.counter].status &= ~BUFFER_STATUS_CONTINUE;
+    if(state.counter < state.numlines-1)
+    {
+        buffer->lines[state.counter].status &= ~BUFFER_STATUS_CONTINUED;
+    }
     
     return buffer;
 }
@@ -151,7 +154,7 @@ void buffer_display(struct buffer_state* buffer)
         int size = b_line->size;
         char* ptr = &f_line->line[b_line->offset];
         
-        if(b_line->status & BUFFER_STATUS_CONTINUE)
+        if(b_line->status & BUFFER_STATUS_CONTINUED)
         {
             screen_set_line(i, ptr);
             offset = f_line->size - b_line->offset;
@@ -220,11 +223,11 @@ void load_lines(void* elem, void* akk)
         {
             state->lines[state->counter].size = size;
             
-            if(state->lines[state->counter].status & BUFFER_STATUS_CONTINUE)
+            if(state->lines[state->counter].status & BUFFER_STATUS_CONTINUED)
             {
                 if(i == 0)
                 {
-                    state->lines[state->counter].status &= ~BUFFER_STATUS_CONTINUE;
+                    state->lines[state->counter].status &= ~BUFFER_STATUS_CONTINUED;
                     state->lines[state->counter].status |= BUFFER_STATUS_EXHAUSTED;
                 }
             }
@@ -248,6 +251,7 @@ void load_lines(void* elem, void* akk)
             state->counter++;
             if(state->counter == state->numlines)
             {
+                state->counter--;   // ptr to last
                 state->lines = 0;   // remember done
                 return;
             }
@@ -262,7 +266,7 @@ void load_lines(void* elem, void* akk)
     }
     else if(offset < i)
     {
-        state->lines[state->counter].status |= BUFFER_STATUS_CONTINUE;
+        state->lines[state->counter].status |= BUFFER_STATUS_CONTINUED;
         state->lines[state->counter].size = size;
         state->lines[state->counter].offset = offset;
     }
