@@ -29,15 +29,16 @@ int stk_counter_inc(void* elem, int size)
 
 void rubout_init()
 {
-    stack_init(STACK_MODE_EXT, sizeof(rubout_func*), &stk_rubout);
-    stack_init(STACK_MODE_SIMPLE, sizeof(char), &stk_counter);
+    stack_init(STACK_MODE_EXT, sizeof(rubout_func*), "rub", &stk_rubout);
+    stack_init(STACK_MODE_SIMPLE, sizeof(char), "counter", &stk_counter);
     stack_set_func(stk_counter_inc, &stk_counter);
     break_lvl = 0;
 }
 
 void rubout_finish()
 {
-    // nothing todo
+    stack_finish(&stk_rubout);
+    stack_finish(&stk_counter);
 }
 
 void rubout()

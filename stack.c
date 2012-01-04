@@ -5,24 +5,42 @@
 */
 
 #include "stack.h"
+
 #include <string.h>
 
-struct stack_state* stack_init(int mode, int size, struct stack_state* stack)
+// FORWARDS
+
+// DEFINES
+
+// VARIABLES
+
+#ifndef NDEBUG
+
+char buf[80];
+
+#endif
+
+// INTERNAL
+
+#ifndef NDEBUG
+
+const char* get_type(const char* size)
 {
-    stack->mode = mode;
-    stack->size = size;
-    stack->base = stack->stack;
-    stack->ptr = stack->stack;
-    stack->stack[0] = 0;
-    return stack;
+    if(!strncmp(size, "sizeof(", 7))
+    {
+        strcpy(buf, size+7);
+        buf[strlen(buf)-1] = 0;
+        return buf;
+    }
+    else
+    {
+        return size;
+    }
 }
 
-struct stack_state* stack_init_s(struct stack_state* stack)
-{
-    return stack_init(STACK_MODE_EXT, sizeof(char), stack);
-}
+#endif
 
-void* stack_push(void* elem, int size, struct stack_state* stack)
+void* push(void* elem, int size, struct stack_state* stack)
 {
     int ext = stack->mode == STACK_MODE_EXT;
     int extsize = ext ? sizeof(int) : 0;
@@ -42,20 +60,91 @@ void* stack_push(void* elem, int size, struct stack_state* stack)
     return ptr;
 }
 
+// EXTERNAL
+
+DEBUGIZE_2(struct stack_state*, stack_init, int mode, int size, const char* name, struct stack_state* stack)
+{
+    stack->mode = mode;
+    stack->size = size;
+    stack->base = stack->stack;
+    stack->ptr = stack->stack;
+    stack->stack[0] = 0;
+    #ifndef NDEBUG
+        sprintf(buf, "logs/stk_%s", name);
+        stack->file = fopen(buf, "w");
+        sprintf(stack->type, get_type(dbg_arg2));
+    #endif
+    return stack;
+}
+
+struct stack_state* stack_init_s(const char* name, struct stack_state* stack)
+{
+    return stack_init(STACK_MODE_EXT, sizeof(char), name, stack);
+}
+
+struct stack_state* stack_clear(struct stack_state* stack)
+{
+    stack->ptr = stack->stack;
+    *(stack->ptr) = 0;
+    return stack;
+}
+
+void stack_finish(struct stack_state* stack)
+{
+    #ifndef NDEBUG
+        fclose(stack->file);
+    #endif
+}
+
+#ifdef NDEBUG
+
+void* stack_push(void* elem, int size, struct stack_state* stack)
+{
+    return push(elem, size, stack);
+}
+
 void* stack_push_p(void* elemptr, int size, struct stack_state* stack)
 {
-    return stack_push(&elemptr, size, stack);
+    return push(&elemptr, size, stack);
 }
 
 void* stack_push_s(void* elem, struct stack_state* stack)
 {
-    return stack_push(elem, stack->size, stack);
+    return push(elem, stack->size, stack);
 }
 
 void* stack_push_sp(void* elemptr, struct stack_state* stack)
 {
-    return stack_push(&elemptr, stack->size, stack);
+    return push(&elemptr, stack->size, stack);
 }
+
+#else
+
+void* stack_push_dbg(void* elem, int size, struct stack_state* stack, const char* dbg_elem, const char* dbg_size, const char* dbg_func)
+{
+    debug_log_f(dbg_func, stack->file, "%s %p %i %s", get_type(dbg_size), elem, size, dbg_elem);
+    return push(elem, size, stack);
+}
+
+void* stack_push_p_dbg(void* elemptr, int size, struct stack_state* stack, const char* dbg_elemptr, const char* dbg_size, const char* dbg_func)
+{
+    debug_log_f(dbg_func, stack->file, "%s %p %i %s", get_type(dbg_size), elemptr, size, dbg_elemptr);
+    return push(&elemptr, size, stack);
+}
+
+void* stack_push_s_dbg(void* elem, struct stack_state* stack, const char* dbg_elem, const char* dbg_func)
+{
+    debug_log_f(dbg_func, stack->file, "%s %p %i %s", stack->type, elem, stack->size, dbg_elem);
+    return push(elem, stack->size, stack);
+}
+
+void* stack_push_sp_dbg(void* elemptr, struct stack_state* stack, const char* dbg_elemptr, const char* dbg_func)
+{
+    debug_log_f(dbg_func, stack->file, "%s %p %i %s", stack->type, elemptr, stack->size, dbg_elemptr);
+    return push(&elemptr, stack->size, stack);
+}
+
+#endif
 
 int stack_pop(void* dst, struct stack_state* stack)
 {
@@ -79,10 +168,9 @@ int stack_pop(void* dst, struct stack_state* stack)
     return size;
 }
 
-struct stack_state* stack_pop_s(struct stack_state* stack)
+int stack_pop_s(struct stack_state* stack)
 {
-    if(stack_pop(0, stack) >= 0) return stack;
-    else return 0;
+    return stack_pop(0, stack);
 }
 
 struct stack_elem stack_top_p(struct stack_state* stack)
@@ -143,13 +231,6 @@ struct stack_state* stack_set_base(void* ptr, struct stack_state* stack)
 int stack_get_size(struct stack_state* stack)
 {
     return stack->ptr-stack->stack;
-}
-
-struct stack_state* stack_clear(struct stack_state* stack)
-{
-    stack->ptr = stack->stack;
-    *(stack->ptr) = 0;
-    return stack;
 }
 
 struct stack_state* stack_set(void* src, int size, struct stack_state* stack)

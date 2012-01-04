@@ -41,7 +41,7 @@ struct buffer_state* buffer_init(const char* name, int number, struct buffer_sta
     memset(buffer->lines, 0, lines*sizeof(struct buffer_line));
     buffer->lines[0].status |= BUFFER_STATUS_LAST;
 
-    stack_init(STACK_MODE_SIMPLE, sizeof(char), &buffer->stack);
+    stack_init(STACK_MODE_SIMPLE, sizeof(char), name, &buffer->stack);
     
     file_init(&buffer->file);
     list_get(0, &buffer->file.chunks); // set current
@@ -54,6 +54,7 @@ void buffer_close(struct buffer_state* buffer)
 {
     free(buffer->lines);
     file_close(&buffer->file);
+    stack_finish(&buffer->stack);
 }
 
 struct buffer_state* buffer_load(const char* file, struct buffer_state* buffer)

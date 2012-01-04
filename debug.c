@@ -4,38 +4,65 @@
 // /_/ |_|_\_\__/_/\___/\___\____\ 
 */
 
+#ifndef NDEBUG
+
 #include "debug.h"
 
-#include <stdio.h>
 #include <stdarg.h>
 
-FILE* file;
+// FORWARDS
+
+// DEFINES
+
+// VARIABLES
+
+FILE* dbgfile;
+
+// INTERNAL
+
+void debug_log_v(const char* func, FILE* file, const char* format, va_list arglist)
+{
+    if(!file) file = dbgfile;
+    fputs(func, file);
+    fputs(": ", file);
+    vfprintf(file, format, arglist);
+    fputs("\n", file);
+    #ifdef FLUSH
+        fflush(file);
+    #endif
+}
+
+// EXTERNAL
 
 void debug_start()
 {
-    file = fopen("log", "w");
+    dbgfile = fopen("logs/log", "w");
 }
 
 void debug_stop()
 {
-    fclose(file);
+    fclose(dbgfile);
 }
 
 void debug_log(const char* func, const char* format, ...)
 {
     va_list arglist;
     va_start(arglist, format);
-    fputs(func, file);
-    fputs(": ", file);
-    vfprintf(file, format, arglist);
-    fputs("\n", file);
+    debug_log_v(func, 0, format, arglist);
     va_end(arglist);
-    #ifdef FLUSH
-        fflush(file);
-    #endif
+}
+
+void debug_log_f(const char* func, FILE* file, const char* format, ...)
+{
+    va_list arglist;
+    va_start(arglist, format);
+    debug_log_v(func, file, format, arglist);
+    va_end(arglist);
 }
 
 void debug_flush()
 {
-    fflush(file);
+    fflush(dbgfile);
 }
+
+#endif

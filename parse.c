@@ -45,11 +45,11 @@ int arg_mode, arg_value;    // argument from last for next cmd
 
 void parse_init()
 {
-    stack_init(STACK_MODE_SIMPLE, sizeof(char), &stk_input);
-    stack_init(STACK_MODE_SIMPLE, sizeof(cmd_func*), &stk_func);
-    stack_init(STACK_MODE_SIMPLE, sizeof(cmd_after*), &stk_after);
+    stack_init(STACK_MODE_SIMPLE, sizeof(char), "input", &stk_input);
+    stack_init(STACK_MODE_SIMPLE, sizeof(cmd_func*), "func", &stk_func);
+    stack_init(STACK_MODE_SIMPLE, sizeof(cmd_after*), "after", &stk_after);
     
-    stack_init(STACK_MODE_EXT, sizeof(int), &stk_gen);
+    stack_init(STACK_MODE_EXT, sizeof(int), "gen", &stk_gen);
     
     ecf = ecf_empty;
     
@@ -59,7 +59,10 @@ void parse_init()
 
 void parse_finish()
 {
-    // nothing todo
+    stack_finish(&stk_input);
+    stack_finish(&stk_gen);
+    stack_finish(&stk_func);
+    stack_finish(&stk_after);
 }
 
 int parse_input(char c)
