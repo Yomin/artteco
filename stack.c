@@ -46,6 +46,7 @@ void* push(void* elem, int size, struct stack_state* stack)
     int extsize = ext ? sizeof(int) : 0;
     if(stack->ptr+size+extsize-stack->stack >= STACK_SIZE)
     {
+        DEBUG_LOG_F(stack->file, "!!! STACK OVERFLOW !!!");
         return 0;
     }
     if(elem) memcpy(stack->ptr, elem, size);

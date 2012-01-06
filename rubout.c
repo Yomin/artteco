@@ -113,6 +113,10 @@ void rubout_end()
         {
             stack_push(&rubout, sizeof(rubout_func*), &stk_rubout);
         }
+        else
+        {
+            DEBUG_LOG_F(stk_rubout.file, "%i registered rubouts\n", counter);
+        }
     }
     if(break_lvl > 0) break_lvl--;
 }

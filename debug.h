@@ -12,7 +12,7 @@
 #include <stdio.h>
 
 #define DEBUG_LOG(f, ...)           debug_log(__func__, f, ##__VA_ARGS__)
-#define DEBUG_LOG_F(file, f, ...)   debug_log(__func__, file, f, ##__VA_ARGS__)
+#define DEBUG_LOG_F(file, f, ...)   debug_log_f(__func__, file, f, ##__VA_ARGS__)
 #define DEBUG_FLUSH()               debug_flush(__func__)
 #define DEBUG_START()               debug_start()
 #define DEBUG_STOP()                debug_stop()
