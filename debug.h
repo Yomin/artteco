@@ -30,6 +30,8 @@ void debug_flush();
 #define DEBUGIZE_2(ret, func, arg1, arg2, ...) ret func##_dbg(arg1, arg2, ##__VA_ARGS__, const char* dbg_arg1, const char* dbg_arg2, const char* dbg_func)
 #define DEBUGIZE_3(ret, func, arg1, arg2, arg3, ...) ret func##_dbg(arg1, arg2, arg3, ##__VA_ARGS__, const char* dbg_arg1, const char* dbg_arg2, const char* dbg_arg3, const char* dbg_func)
 
+#define STR(X) #X
+
 #else
 
 #define DEBUG_LOG(f, ...)

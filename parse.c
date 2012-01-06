@@ -33,6 +33,7 @@ void ecf_empty(char c) {}
 void process_param_num(char c);
 void process_param_str(char c);
 int  process_cmd(char c);
+void parse_register_rubouts();
 
 // VARIABLES
 
@@ -45,6 +46,8 @@ int arg_mode, arg_value;    // argument from last for next cmd
 
 void parse_init()
 {
+    parse_register_rubouts();
+    
     stack_init(STACK_MODE_SIMPLE, sizeof(char), "input", &stk_input);
     stack_init(STACK_MODE_SIMPLE, sizeof(cmd_func*), "func", &stk_func);
     stack_init(STACK_MODE_SIMPLE, sizeof(cmd_after*), "after", &stk_after);
@@ -399,4 +402,22 @@ int process_cmd(char c)
         }
     }
     return STATUS_SUCCESS;
+}
+
+void parse_register_rubouts()
+{
+    rubout_ptr_register(parse_register_func_rubout);
+    rubout_ptr_register(parse_register_after_rubout);
+    rubout_ptr_register(parse_register_ecf_rubout);
+    rubout_ptr_register(parse_register_data_rubout);
+    rubout_ptr_register(parse_get_func_rubout);
+    rubout_ptr_register(parse_get_after_rubout);
+    rubout_ptr_register(parse_get_data_rubout);
+    rubout_ptr_register(parse_toggle_sign_rubout);
+    rubout_ptr_register(set_sign_rubout);
+    rubout_ptr_register(set_arg_rubout);
+    rubout_ptr_register(set_input_base_rubout);
+    rubout_ptr_register(process_param_num_rubout);
+    rubout_ptr_register(process_param_str_rubout);
+    rubout_ptr_register(process_cmd_rubout);
 }

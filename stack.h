@@ -57,12 +57,12 @@ void                stack_finish(struct stack_state* stack);
 
 #else
     
-    #define stack_init(mode, size, name, state) stack_init_dbg(mode, size, name, state, #mode, #size, __func__)
+    #define stack_init(mode, size, name, state) stack_init_dbg(mode, size, name, state, STR(mode), STR(size), __func__)
     
-    #define stack_push(elem, size, stack) stack_push_dbg(elem, size, stack, #elem, #size, __func__)
-    #define stack_push_s(elem, stack) stack_push_s_dbg(elem, stack, #elem, __func__)
-    #define stack_push_p(elemptr, size, stack) stack_push_p_dbg(elemptr, size, stack, #elemptr, #size, __func__)
-    #define stack_push_sp(elemptr, stack) stack_push_sp_dbg(elemptr, stack, #elemptr, __func__)
+    #define stack_push(elem, size, stack) stack_push_dbg(elem, size, stack, STR(elem), STR(size), __func__)
+    #define stack_push_s(elem, stack) stack_push_s_dbg(elem, stack, STR(elem), __func__)
+    #define stack_push_p(elemptr, size, stack) stack_push_p_dbg(elemptr, size, stack, STR(elemptr), STR(size), __func__)
+    #define stack_push_sp(elemptr, stack) stack_push_sp_dbg(elemptr, stack, STR(elemptr), __func__)
     
     struct stack_state* stack_init_dbg(int mode, int size, const char* name, struct stack_state* state, const char* dbg_mode, const char* dbg_size, const char* dbg_func);
     

@@ -13,6 +13,10 @@
 
 // DEFINES
 
+// FORWARDS
+
+void buffer_mgr_register_rubouts();
+
 // VARIABLES
 
 int count_intern, count_buffer;
@@ -90,6 +94,7 @@ struct buffer_state* mgr_add(const char* name, int number, const char* file)
 
 void buffer_mgr_init()
 {
+    buffer_mgr_register_rubouts();
     list_init(sizeof(struct buffer_state), &buffer_list);
     count_intern = 0;
     count_buffer = 0;
@@ -151,4 +156,14 @@ struct buffer_state* buffer_mgr_switch(int number)
 {
     rubout_register(buffer_mgr_switch_rubout, &buffer_current->number, sizeof(int));
     return switch_buf(number);
+}
+
+// INTERNAL
+
+void buffer_mgr_register_rubouts()
+{
+    buffer_register_rubouts();
+    rubout_ptr_register(mgr_add_rubout);
+    rubout_ptr_register(buffer_mgr_delete_rubout);
+    rubout_ptr_register(buffer_mgr_switch_rubout);
 }

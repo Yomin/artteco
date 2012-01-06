@@ -22,6 +22,7 @@
 // FORWARDS
 
 void cmds_register();
+void cmd_switch_table_rubout();
 
 // VARIABLES
 
@@ -32,6 +33,7 @@ char table_current;
 
 void cmd_init()
 {
+    rubout_ptr_register(cmd_switch_table_rubout);
     table_current = TAB_STD;
     cmds_register();
 }

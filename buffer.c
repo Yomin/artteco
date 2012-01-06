@@ -208,6 +208,14 @@ int buffer_move_cursor(int amount, struct buffer_state* buffer)
     return 0;
 }
 
+void buffer_register_rubouts()
+{
+    rubout_ptr_register(buffer_write_str_rubout);
+    rubout_ptr_register(buffer_delete_str_rubout);
+    rubout_ptr_register(buffer_scroll_rubout);
+    rubout_ptr_register(buffer_move_cursor_rubout);
+}
+
 // INTERNAL
 
 void load_lines(void* elem, void* akk)

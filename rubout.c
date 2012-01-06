@@ -9,12 +9,17 @@
 
 // DEFINES
 
+#define RUBOUT_PTR_COUNT 256
+#define RUBOUT_PTR_TYPE  signed char
+
 // FORWARDS
 
 // VARIABLES
 
 struct stack_state stk_rubout, stk_counter;
 int break_lvl;
+rubout_func* rubout_ptr[RUBOUT_PTR_COUNT];
+int rubout_ptr_count;
 
 // INTERNAL
 
@@ -25,14 +30,26 @@ int stk_counter_inc(void* elem, int size)
     return STACK_EXEC_SUCCESS;
 }
 
+RUBOUT_PTR_TYPE get_intern(rubout_func* f)
+{
+    RUBOUT_PTR_TYPE i;
+    for(i=0; i<RUBOUT_PTR_COUNT; i++)
+    {
+        if(rubout_ptr[i] == f) return i;
+    }
+    return 0;
+}
+
 // EXTERNAL
 
 void rubout_init()
 {
-    stack_init(STACK_MODE_EXT, sizeof(rubout_func*), "rub", &stk_rubout);
+    stack_init(STACK_MODE_EXT, sizeof(RUBOUT_PTR_TYPE), "rub", &stk_rubout);
     stack_init(STACK_MODE_SIMPLE, sizeof(char), "counter", &stk_counter);
     stack_set_func(stk_counter_inc, &stk_counter);
     break_lvl = 0;
+    rubout_ptr_count = 1;
+    rubout_ptr_register(rubout);
 }
 
 void rubout_finish()
@@ -45,34 +62,37 @@ void rubout()
 {
     char counter;
     stack_pop(&counter, &stk_rubout);
-    rubout_func* f;
+    RUBOUT_PTR_TYPE g;
     
     while(counter-- > 0)
     {
-        stack_pop(&f, &stk_rubout);
-        f();
+        stack_pop(&g, &stk_rubout);
+        rubout_ptr[g]();
     }
 }
 
-DEBUGIZE_1(void, rubout_register_s, rubout_func* f)
+DEBUGIZE_1(int, rubout_register_s, rubout_func* f)
 {
+    RUBOUT_PTR_TYPE g = get_intern(f);
+    if(g == 0) return RUBOUT_FAILURE;
     DEBUG(
-        stack_push_s(&f, &stk_rubout),
-        stack_push_s_dbg(&f, &stk_rubout, dbg_arg, dbg_func)
+        stack_push_s(&g, &stk_rubout),
+        stack_push_s_dbg(&g, &stk_rubout, dbg_arg, dbg_func)
     );
     stack_exec(&stk_counter);
     char counter;
     stack_top(&counter, &stk_counter);
+    return RUBOUT_SUCCESS;
 }
 
-DEBUGIZE_3(void, rubout_register, rubout_func* f, void* data, int size)
+DEBUGIZE_3(int, rubout_register, rubout_func* f, void* data, int size)
 {
 #ifdef NDEBUG
     rubout_save(data, size);
-    rubout_register_s(f);
+    return rubout_register_s(f);
 #else
     rubout_save_dbg(data, size, dbg_arg2, dbg_arg3, dbg_func);
-    rubout_register_s_dbg(f, dbg_arg1, dbg_func);
+    return rubout_register_s_dbg(f, dbg_arg1, dbg_func);
 #endif
 }
 
@@ -111,11 +131,12 @@ void rubout_end()
         stack_push(&counter, sizeof(char), &stk_rubout);
         if(!stack_empty(&stk_counter))
         {
-            stack_push(&rubout, sizeof(rubout_func*), &stk_rubout);
+            stack_push_s(&rubout, &stk_rubout);
         }
         else
         {
-            DEBUG_LOG_F(stk_rubout.file, "%i registered rubouts\n", counter);
+            DEBUG_LOG_F(stk_rubout.file, "registered %i rubouts, %i bytes used\n",
+                counter, stk_rubout.ptr-stk_rubout.stack);
         }
     }
     if(break_lvl > 0) break_lvl--;
@@ -126,6 +147,7 @@ void rubout_clear()
     stack_clear(&stk_rubout);
     stack_clear(&stk_counter);
     break_lvl = 0;
+    rubout_ptr_count = 1;
 }
 
 void rubout_break()
@@ -133,3 +155,15 @@ void rubout_break()
     break_lvl = 1;
 }
 
+int rubout_ptr_register(rubout_func* f)
+{
+    if(rubout_ptr_count == RUBOUT_PTR_COUNT)
+    {
+        return RUBOUT_FAILURE;
+    }
+    else
+    {
+        rubout_ptr[rubout_ptr_count++] = f;
+        return RUBOUT_SUCCESS;
+    }
+}
