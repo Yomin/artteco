@@ -27,8 +27,8 @@ struct stack_state
 {
     char stack[STACK_SIZE+1];
     char *base, *ptr;
-    int mode;
-    int size;
+    char mode;
+    signed char size;
     stack_func* func;
     #ifndef NDEBUG
         FILE* file;

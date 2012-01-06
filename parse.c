@@ -81,7 +81,7 @@ int parse_input(char c)
         rubout_start();
         if(stack_empty(&stk_func))
         {
-            if(isNumeric(c))
+            if(is_numeric(c))
             {
                 process_param_num(c);
             }

@@ -7,7 +7,8 @@
 #ifndef __ART_TECO_HELP__
 #define __ART_TECO_HELP__
 
-int isNumeric(char c);
-int getDigits(int n);
+int is_numeric(char c);
+int get_digits(int n);
+int power(int b, int e);
 
 #endif

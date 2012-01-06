@@ -5,6 +5,7 @@
 */
 
 #include "stack.h"
+#include "help.h"
 
 #include <string.h>
 
@@ -43,19 +44,28 @@ const char* get_type(const char* size)
 void* push(void* elem, int size, struct stack_state* stack)
 {
     int ext = stack->mode == STACK_MODE_EXT;
-    int extsize = ext ? sizeof(int) : 0;
+    int extsize = ext ? sizeof(signed char) : 0;
+    char* ptr = stack->ptr;
+    
     if(stack->ptr+size+extsize-stack->stack >= STACK_SIZE)
     {
         DEBUG_LOG_F(stack->file, "!!! STACK OVERFLOW !!!");
         return 0;
     }
     if(elem) memcpy(stack->ptr, elem, size);
-    char* ptr = stack->ptr;
     stack->ptr += size;
     if(ext)
     {
-        memcpy(stack->ptr, &size, sizeof(int));
-        stack->ptr += sizeof(int);
+        if(size >= power(2, sizeof(signed char)*8))
+        {
+            return 0;
+        }
+        else
+        {
+            signed char csize = (signed char) size;
+            memcpy(stack->ptr, &csize, sizeof(signed char));
+            stack->ptr += sizeof(signed char);
+        }
     }
     *(stack->ptr) = 0;
     return ptr;
@@ -65,8 +75,8 @@ void* push(void* elem, int size, struct stack_state* stack)
 
 DEBUGIZE_2(struct stack_state*, stack_init, int mode, int size, const char* name, struct stack_state* stack)
 {
-    stack->mode = mode;
-    stack->size = size;
+    stack->mode = (char)mode;
+    stack->size = (signed char)size;
     stack->base = stack->stack;
     stack->ptr = stack->stack;
     stack->stack[0] = 0;
@@ -153,20 +163,20 @@ int stack_pop(void* dst, struct stack_state* stack)
     {
         return -1;
     }
-    int size;
+    signed char size;
     if(stack->mode == STACK_MODE_EXT)
     {
-        memcpy(&size, stack->ptr-sizeof(int), sizeof(int));
-        stack->ptr -= sizeof(int)+size;
+        memcpy(&size, stack->ptr-sizeof(signed char), sizeof(signed char));
+        stack->ptr -= sizeof(signed char)+size;
     }
     else
     {
         size = stack->size;
         stack->ptr -= stack->size;
     }
-    if(dst) memcpy(dst, stack->ptr, size);
+    if(dst) memcpy(dst, stack->ptr, (int)size);
     *(stack->ptr) = 0;
-    return size;
+    return (int)size;
 }
 
 int stack_pop_s(struct stack_state* stack)
@@ -177,6 +187,7 @@ int stack_pop_s(struct stack_state* stack)
 struct stack_elem stack_top_p(struct stack_state* stack)
 {
     struct stack_elem elem;
+    signed char size;
     if(stack->ptr == stack->stack)
     {
         elem.ptr = 0;
@@ -184,12 +195,13 @@ struct stack_elem stack_top_p(struct stack_state* stack)
     }
     if(stack->mode == STACK_MODE_EXT)
     {
-        memcpy(&elem.size, stack->ptr-sizeof(int), sizeof(int));
-        elem.ptr = stack->ptr-sizeof(int)-elem.size;
+        memcpy(&size, stack->ptr-sizeof(signed char), sizeof(signed char));
+        elem.size = (int)size;
+        elem.ptr = stack->ptr-sizeof(signed char)-size;
     }
     else
     {
-        elem.size = stack->size;
+        elem.size = (int)stack->size;
         elem.ptr = stack->ptr-stack->size;
     }
     return elem;

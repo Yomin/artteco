@@ -6,15 +6,25 @@
 
 #include "help.h"
 
-int isNumeric(char c)
+int is_numeric(char c)
 {
     return c >= 48 && c <= 57;
 }
 
-int getDigits(int n)
+int get_digits(int n)
 {
     if(!n) return 1;
     int d;
-    for(d=0;n>0;n/=10,d++);
+    for(d=0; n>0; n/=10, d++);
     return d;
+}
+
+int power(int b, int e)
+{
+    int x=1;
+    if(b!=0 || e!=0)
+    {
+        for(; e>0; e--) x*=b;
+    }
+    return x;
 }
