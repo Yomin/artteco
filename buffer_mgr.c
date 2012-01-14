@@ -21,7 +21,6 @@ void buffer_mgr_register_rubouts();
 
 int count_intern, count_buffer;
 struct list_state buffer_list;
-struct buffer_state* buffer_current;
 
 // INTERNAL
 
@@ -41,36 +40,38 @@ int match_by_number(void* elem, void* param)
 
 struct buffer_state* switch_buf(int number)
 {
-    struct buffer_state* buf = (struct buffer_state*) list_find(match_by_number, &number, &buffer_list);
-    if(buf && buf != buffer_current)
-    {
-        buffer_current = buf;
-        buffer_display(buf);
-    }
-    return buf;
+    struct buffer_state* current = list_current(&buffer_list);
+    struct buffer_state* next = list_find_c(match_by_number, &number, &buffer_list);
+    if(current != next)
+        buffer_display(next);
+    return next;
 }
 
-int delete(int number)
+void delete(int number)
 {
-    if(number == -1)
-    {
-        return BUFFER_DELETE_FORBIDDEN;
-    }
-    else if(number == buffer_current->number)
-    {
+    struct buffer_state* current = list_current(&buffer_list);
+    if(number == current->number)
         switch_buf(-1);
-    }
-    return list_remove(match_by_number, &number, &buffer_list);
+    list_remove(match_by_number, &number, &buffer_list);
 }
 
-struct buffer_state* add(const char* name, int number, const char* file)
+int add(const char* name, int number, const char* file)
 {
     struct buffer_state buf;
     buffer_init(name, number, &buf);
-    if(file) if(!buffer_load(file, &buf)) return 0;
-    buffer_current = list_add(&buf, &buffer_list);
-    buffer_display(buffer_current);
-    return buffer_current;
+    if(file)
+    {
+        switch(buffer_load(file, &buf))
+        {
+            case BUFFER_ERROR_FILE_NOT_FOUND:
+                return BUFFER_MGR_ERROR_FILE_NOT_FOUND;
+            case BUFFER_ERROR_FILE_NAME_SIZE:
+                return BUFFER_MGR_ERROR_FILE_NAME_SIZE;
+        }
+    }
+    struct buffer_state* current = list_add_c(&buf, &buffer_list);
+    buffer_display(current);
+    return 0;
 }
 
 void mgr_add_rubout()
@@ -81,13 +82,17 @@ void mgr_add_rubout()
     delete(current);
 }
 
-struct buffer_state* mgr_add(const char* name, int number, const char* file)
+int mgr_add(const char* name, int number, const char* file)
 {
-    int previous = buffer_current->number;
-    struct buffer_state* ret = add(name, number, file);
-    if(!ret) return 0;
-    rubout_register(mgr_add_rubout, &previous, sizeof(int));
-    return ret;
+    struct buffer_state* buf = list_find_c(match_by_number, &number, &buffer_list);
+    if(buf)
+        return BUFFER_MGR_ERROR_EXISTING;
+    struct buffer_state* current = list_current(&buffer_list);
+    int ret = add(name, number, file);
+    if(ret)
+        return ret;
+    rubout_register(mgr_add_rubout, &current->number, sizeof(int));
+    return 0;
 }
 
 // EXTERNAL
@@ -98,7 +103,7 @@ void buffer_mgr_init()
     list_init(sizeof(struct buffer_state), &buffer_list);
     count_intern = 0;
     count_buffer = 0;
-    buffer_current = add("TECO-Main", --count_intern, 0);
+    add("TECO-Main", --count_intern, 0);
 }
 
 void buffer_mgr_finish()
@@ -106,17 +111,17 @@ void buffer_mgr_finish()
     list_clear_f((mapFunc*)buffer_close, &buffer_list);
 }
 
-struct buffer_state* buffer_mgr_add(const char* name)
+void buffer_mgr_add(const char* name)
 {
-    return mgr_add(name, ++count_buffer, 0);
+    mgr_add(name, ++count_buffer, 0);
 }
 
-struct buffer_state* buffer_mgr_add_intern(const char* name)
+void buffer_mgr_add_intern(const char* name)
 {
-    return mgr_add(name, --count_intern, 0);
+    mgr_add(name, --count_intern, 0);
 }
 
-struct buffer_state* buffer_mgr_add_file(const char* name, const char* file)
+int buffer_mgr_add_file(const char* name, const char* file)
 {
     return mgr_add(name, ++count_buffer, file);
 }
@@ -133,16 +138,21 @@ void buffer_mgr_delete_rubout()
 
 int buffer_mgr_delete(int number)
 {
+    if(number == -1)
+        return BUFFER_MGR_ERROR_ACCESS_FORBIDDEN;
     struct buffer_state* buf = (struct buffer_state*) list_get(number, &buffer_list);
+    if(!buf)
+        return BUFFER_MGR_ERROR_NOT_FOUND;
     char* name = buf->file.name;
     rubout_save(&number, sizeof(int));
     rubout_register(buffer_mgr_delete_rubout, name, strlen(name)*sizeof(char));
-    return delete(number);
+    delete(number);
+    return 0;
 }
 
 struct buffer_state* buffer_mgr_current()
 {
-    return buffer_current;
+    return list_current(&buffer_list);
 }
 
 void buffer_mgr_switch_rubout()
@@ -154,7 +164,8 @@ void buffer_mgr_switch_rubout()
 
 struct buffer_state* buffer_mgr_switch(int number)
 {
-    rubout_register(buffer_mgr_switch_rubout, &buffer_current->number, sizeof(int));
+    struct buffer_state* current = list_current(&buffer_list);
+    rubout_register(buffer_mgr_switch_rubout, &current->number, sizeof(int));
     return switch_buf(number);
 }
 

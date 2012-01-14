@@ -18,6 +18,9 @@
 
 #define FILE_NAME_SIZE 80
 
+#define FILE_ERROR_NOT_FOUND -1
+#define FILE_ERROR_NAME_SIZE -2
+
 struct file_line
 {
     char line[FILE_LINE_SIZE+1];
@@ -37,8 +40,8 @@ struct file_state
     struct list_state chunks;
 };
 
-struct file_state* file_init(struct file_state* file);
+void file_init(struct file_state* file);
 void file_close(struct file_state* file);
-struct file_state* file_load(const char* filename, struct file_state* file);
+int  file_load(const char* filename, struct file_state* file);
 
 #endif

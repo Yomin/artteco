@@ -7,6 +7,7 @@
 #include "buffer.h"
 #include "screen.h"
 #include "rubout.h"
+#include "exception.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -25,12 +26,12 @@ struct load_state
 
 void load_lines(void* elem, void* akk);
 
-struct buffer_state* buffer_write(const char* str, struct buffer_state* buffer);
-struct buffer_state* buffer_delete(int count, struct buffer_state* buffer);
+int buffer_write(const char* str, struct buffer_state* buffer);
+int buffer_delete(int count, struct buffer_state* buffer);
 
 // EXTERNAL
 
-struct buffer_state* buffer_init(const char* name, int number, struct buffer_state* buffer)
+void buffer_init(const char* name, int number, struct buffer_state* buffer)
 {
     strncpy(buffer->name, name, BUFFER_NAME_SIZE-1);
     buffer->name[MIN(strlen(name), BUFFER_NAME_SIZE-1)] = 0;
@@ -38,6 +39,8 @@ struct buffer_state* buffer_init(const char* name, int number, struct buffer_sta
     
     int lines = screen_get_buffer_lines();
     buffer->lines = (struct buffer_line*) malloc(lines*sizeof(struct buffer_line));
+    if(!buffer->lines)
+        THROW(EXCEPTION_NO_MEMORY);
     memset(buffer->lines, 0, lines*sizeof(struct buffer_line));
     buffer->lines[0].status |= BUFFER_STATUS_LAST;
 
@@ -46,8 +49,6 @@ struct buffer_state* buffer_init(const char* name, int number, struct buffer_sta
     file_init(&buffer->file);
     list_get(0, &buffer->file.chunks); // set current
     buffer->linenumber = 0;
-    
-    return buffer;
 }
 
 void buffer_close(struct buffer_state* buffer)
@@ -57,12 +58,17 @@ void buffer_close(struct buffer_state* buffer)
     stack_finish(&buffer->stack);
 }
 
-struct buffer_state* buffer_load(const char* file, struct buffer_state* buffer)
+int buffer_load(const char* file, struct buffer_state* buffer)
 {
-    struct file_state* fs = file_load(file, &buffer->file);
-    if(!fs) return 0;
+    switch(file_load(file, &buffer->file))
+    {
+        case FILE_ERROR_NOT_FOUND:
+            return BUFFER_ERROR_FILE_NOT_FOUND;
+        case FILE_ERROR_NAME_SIZE:
+            return BUFFER_ERROR_FILE_NAME_SIZE;
+    }
     
-    struct file_chunk* chunk = list_get(0, &buffer->file.chunks);
+    struct file_chunk* chunk = (struct file_chunk*)list_get(0, &buffer->file.chunks);
     
     struct load_state state;
     state.counter = 0;
@@ -74,11 +80,9 @@ struct buffer_state* buffer_load(const char* file, struct buffer_state* buffer)
     list_fold(load_lines, &state, &chunk->lines);
     buffer->lines[state.counter].status |= BUFFER_STATUS_LAST;
     if(state.counter < state.numlines-1)
-    {
         buffer->lines[state.counter].status &= ~BUFFER_STATUS_CONTINUED;
-    }
     
-    return buffer;
+    return 0;
 }
 
 void buffer_write_str_rubout()
@@ -90,15 +94,17 @@ void buffer_write_str_rubout()
     buffer_delete(len, buffer);
 }
 
-struct buffer_state* buffer_write_str(const char* str, struct buffer_state* buffer)
+int buffer_write_str(const char* str, struct buffer_state* buffer)
 {
+    if(buffer_write(str, buffer))
+        return -1;
     int len = strlen(str);
     rubout_save(&len, sizeof(int));
     rubout_register(buffer_write_str_rubout, &buffer, sizeof(struct buffer_state*));
-    return buffer_write(str, buffer);
+    return 0;
 }
 
-struct buffer_state* buffer_write_char(char c, struct buffer_state* buffer)
+int buffer_write_char(char c, struct buffer_state* buffer)
 {
     char str[2];
     str[0] = c;
@@ -113,14 +119,16 @@ void buffer_delete_str_rubout()
     // load/insert characters
 }
 
-struct buffer_state* buffer_delete_str(int count, struct buffer_state* buffer)
+int buffer_delete_str(int count, struct buffer_state* buffer)
 {
     // get characters
+    if(buffer_delete(count, buffer))
+        return -1;
     rubout_register(buffer_delete_str_rubout, &buffer, sizeof(struct buffer_state*));
-    return buffer_delete(count, buffer);
+    return 0;
 }
 
-struct buffer_state* buffer_delete_char(struct buffer_state* buffer)
+int buffer_delete_char(struct buffer_state* buffer)
 {
     return buffer_delete_str(1, buffer);
 }
@@ -132,11 +140,11 @@ void buffer_scroll_rubout()
     // todo
 }
 
-struct buffer_state* buffer_scroll(int lines, struct buffer_state* buffer)
+int buffer_scroll(int lines, struct buffer_state* buffer)
 {
     // todo
     rubout_register(buffer_scroll_rubout, &lines, sizeof(int));
-    return buffer;
+    return 0;
 }
 
 void buffer_display(struct buffer_state* buffer)
@@ -147,7 +155,7 @@ void buffer_display(struct buffer_state* buffer)
     struct file_chunk* chunk = (struct file_chunk*) list_current(&buffer->file.chunks);
     struct file_line* f_line = (struct file_line*) list_get(buffer->linenumber, &chunk->lines);
     
-    for(i=0;i<max;i++)
+    for(i=0;i<max;++i)
     {
         struct buffer_line* b_line = &buffer->lines[i];
         
@@ -222,11 +230,12 @@ void load_lines(void* elem, void* akk)
 {
     struct load_state* state = (struct load_state*) akk;
     struct file_line* line = (struct file_line*) elem;
-    if(!state->lines) return;   // already done
+    if(!state->lines)
+        return;   // already done
     
     int i = 0, offset = 0, size = state->lines[state->counter].size;
     
-    for(; i < line->size; i++, size++)
+    for(; i < line->size; ++i, ++size)
     {
         if(line->line[i] == '\n' || size == state->numcolumns)
         {
@@ -241,9 +250,7 @@ void load_lines(void* elem, void* akk)
                 }
             }
             else
-            {
                 state->lines[state->counter].offset = offset;
-            }
             
             if(line->line[i] == '\n')
             {
@@ -257,10 +264,10 @@ void load_lines(void* elem, void* akk)
                 size = 0;       // "
             }
             
-            state->counter++;
+            ++state->counter;
             if(state->counter == state->numlines)
             {
-                state->counter--;   // ptr to last
+                --state->counter;   // ptr to last
                 state->lines = 0;   // remember done
                 return;
             }
@@ -270,9 +277,7 @@ void load_lines(void* elem, void* akk)
     }
     
     if(offset == i)
-    {
         state->lines[state->counter].status |= BUFFER_STATUS_EXHAUSTED;
-    }
     else if(offset < i)
     {
         state->lines[state->counter].status |= BUFFER_STATUS_CONTINUED;
@@ -281,26 +286,26 @@ void load_lines(void* elem, void* akk)
     }
 }
 
-struct buffer_state* buffer_write(const char* str, struct buffer_state* buffer)
+int buffer_write(const char* str, struct buffer_state* buffer)
 {
     while(*str)
     {
         // buffer todo
         screen_input_text(*str);
-        str++;
+        ++str;
     }
     screen_refresh();
-    return buffer;
+    return 0;
 }
 
-struct buffer_state* buffer_delete(int count, struct buffer_state* buffer)
+int buffer_delete(int count, struct buffer_state* buffer)
 {
     while(count > 0)
     {
         // buffer todo
         screen_delete_text();
-        count--;
+        --count;
     }
     screen_refresh();
-    return buffer;
+    return 0;
 }

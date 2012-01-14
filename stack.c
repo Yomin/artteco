@@ -5,7 +5,7 @@
 */
 
 #include "stack.h"
-#include "help.h"
+#include "exception.h"
 
 #include <string.h>
 
@@ -34,9 +34,7 @@ const char* get_type(const char* size)
         return buf;
     }
     else
-    {
         return size;
-    }
 }
 
 #endif
@@ -44,28 +42,23 @@ const char* get_type(const char* size)
 void* push(void* elem, int size, struct stack_state* stack)
 {
     int ext = stack->mode == STACK_MODE_EXT;
-    int extsize = ext ? sizeof(signed char) : 0;
+    int extsize = ext ? sizeof(unsigned char) : 0;
     char* ptr = stack->ptr;
     
     if(stack->ptr+size+extsize-stack->stack >= STACK_SIZE)
-    {
-        DEBUG_LOG_F(stack->file, "!!! STACK OVERFLOW !!!");
-        return 0;
-    }
-    if(elem) memcpy(stack->ptr, elem, size);
+        THROW(EXCEPTION_STACK_OVERFLOW);
+
+    if(elem)
+        memcpy(stack->ptr, elem, size);
     stack->ptr += size;
     if(ext)
     {
-        if(size >= power(2, sizeof(signed char)*8))
-        {
-            return 0;
-        }
-        else
-        {
-            signed char csize = (signed char) size;
-            memcpy(stack->ptr, &csize, sizeof(signed char));
-            stack->ptr += sizeof(signed char);
-        }
+        if(size >= (1 << sizeof(unsigned char)*8))
+            THROW(EXCEPTION_OBJECT_SIZE);
+        
+        unsigned char csize = (unsigned char) size;
+        memcpy(stack->ptr, &csize, sizeof(unsigned char));
+        stack->ptr += sizeof(unsigned char);
     }
     *(stack->ptr) = 0;
     return ptr;
@@ -73,10 +66,10 @@ void* push(void* elem, int size, struct stack_state* stack)
 
 // EXTERNAL
 
-DEBUGIZE_2(struct stack_state*, stack_init, int mode, int size, const char* name, struct stack_state* stack)
+DEBUGIZE_2(void, stack_init, int mode, int size, const char* name, struct stack_state* stack)
 {
     stack->mode = (char)mode;
-    stack->size = (signed char)size;
+    stack->size = (unsigned char)size;
     stack->base = stack->stack;
     stack->ptr = stack->stack;
     stack->stack[0] = 0;
@@ -85,19 +78,17 @@ DEBUGIZE_2(struct stack_state*, stack_init, int mode, int size, const char* name
         stack->file = fopen(buf, "w");
         sprintf(stack->type, get_type(dbg_arg2));
     #endif
-    return stack;
 }
 
-struct stack_state* stack_init_s(const char* name, struct stack_state* stack)
+void stack_init_s(const char* name, struct stack_state* stack)
 {
-    return stack_init(STACK_MODE_EXT, sizeof(char), name, stack);
+    stack_init(STACK_MODE_EXT, sizeof(char), name, stack);
 }
 
-struct stack_state* stack_clear(struct stack_state* stack)
+void stack_clear(struct stack_state* stack)
 {
     stack->ptr = stack->stack;
     *(stack->ptr) = 0;
-    return stack;
 }
 
 void stack_finish(struct stack_state* stack)
@@ -160,21 +151,20 @@ void* stack_push_sp_dbg(void* elemptr, struct stack_state* stack, const char* db
 int stack_pop(void* dst, struct stack_state* stack)
 {
     if(stack->ptr == stack->stack)
-    {
-        return -1;
-    }
-    signed char size;
+        THROW(EXCEPTION_STACK_EMPTY);
+    unsigned char size;
     if(stack->mode == STACK_MODE_EXT)
     {
-        memcpy(&size, stack->ptr-sizeof(signed char), sizeof(signed char));
-        stack->ptr -= sizeof(signed char)+size;
+        memcpy(&size, stack->ptr-sizeof(unsigned char), sizeof(unsigned char));
+        stack->ptr -= sizeof(unsigned char)+size;
     }
     else
     {
         size = stack->size;
         stack->ptr -= stack->size;
     }
-    if(dst) memcpy(dst, stack->ptr, (int)size);
+    if(dst)
+        memcpy(dst, stack->ptr, (int)size);
     *(stack->ptr) = 0;
     return (int)size;
 }
@@ -187,17 +177,14 @@ int stack_pop_s(struct stack_state* stack)
 struct stack_elem stack_top_p(struct stack_state* stack)
 {
     struct stack_elem elem;
-    signed char size;
+    unsigned char size;
     if(stack->ptr == stack->stack)
-    {
-        elem.ptr = 0;
-        return elem;
-    }
+        THROW(EXCEPTION_STACK_EMPTY);
     if(stack->mode == STACK_MODE_EXT)
     {
-        memcpy(&size, stack->ptr-sizeof(signed char), sizeof(signed char));
+        memcpy(&size, stack->ptr-sizeof(unsigned char), sizeof(unsigned char));
         elem.size = (int)size;
-        elem.ptr = stack->ptr-sizeof(signed char)-size;
+        elem.ptr = stack->ptr-sizeof(unsigned char)-size;
     }
     else
     {
@@ -210,7 +197,6 @@ struct stack_elem stack_top_p(struct stack_state* stack)
 int stack_top(void* dst, struct stack_state* stack)
 {
     struct stack_elem elem = stack_top_p(stack);
-    if(!elem.ptr) return -1;
     memcpy(dst, elem.ptr, elem.size);
     return elem.size;
 }
@@ -235,10 +221,9 @@ void* stack_get_ptr(struct stack_state* stack)
     return stack->ptr;
 }
 
-struct stack_state* stack_set_base(void* ptr, struct stack_state* stack)
+void stack_set_base(void* ptr, struct stack_state* stack)
 {
     stack->base = ptr;
-    return stack;
 }
 
 int stack_get_size(struct stack_state* stack)
@@ -246,31 +231,32 @@ int stack_get_size(struct stack_state* stack)
     return stack->ptr-stack->stack;
 }
 
-struct stack_state* stack_set(void* src, int size, struct stack_state* stack)
+void stack_set(void* src, int size, struct stack_state* stack)
 {
     memcpy(stack->stack, src, size);
     stack->ptr += size;
     *(stack->ptr) = 0;
-    return stack;
 }
 
-struct stack_state* stack_set_size(int size, struct stack_state* stack)
+void stack_set_size(int size, struct stack_state* stack)
 {
     stack->ptr = stack->stack+size;
-    return stack;
 }
 
-struct stack_state* stack_set_func(stack_func* f, struct stack_state* stack)
+void stack_set_func(stack_func* f, struct stack_state* stack)
 {
     stack->func = f;
-    return stack;
 }
 
 int stack_exec(struct stack_state* stack)
 {
-    if(!stack->func) return STACK_EXEC_FAILURE;
+    if(!stack->func)
+        THROW(EXCEPTION_FUNCTION_MISSING);
     struct stack_elem elem = stack_top_p(stack);
-    if(!elem.ptr) return STACK_EXEC_FAILURE;
     return stack->func(elem.ptr, elem.size);
 }
 
+int stack_used_bytes(struct stack_state* stack)
+{
+    return stack->ptr-stack->stack;
+}

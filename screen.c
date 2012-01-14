@@ -29,7 +29,8 @@
 
 // FORWARDS
 
-void print(int y, int x, const char* line, chtype attr);
+void  print(int y, int x, chtype attr, const char* line, ...);
+void vprint(int y, int x, chtype attr, const char* line, va_list arglist);
 void draw_cursor();
 void undraw_cursor();
 void resizeHandler(int sig);
@@ -88,7 +89,8 @@ void screen_logo()
     int i, starty = lines/4, startx = columns/2-strlen(line[6])/2;
     
     wattron(win, A_RED_BLACK);
-    for(i=0; i<7; i++) mvwprintw(win, starty+i, startx, line[i]);
+    for(i=0; i<7; ++i)
+        mvwprintw(win, starty+i, startx, line[i]);
     wattroff(win, A_RED_BLACK);
     
     wrefresh(win);
@@ -131,24 +133,33 @@ void screen_refresh()
     wrefresh(win);
 }
 
-void screen_set_status(const char* status)
+void screen_set_status(const char* status, ...)
 {
-    print(lines-3, 0, status, A_WHITE_RED);
+    va_list arglist;
+    va_start(arglist, status);
+    print(lines-3, 0, A_WHITE_RED, status, arglist);
+    va_end(arglist);
 }
 
-void screen_set_msg(const char* msg)
+void screen_set_msg(const char* msg, ...)
 {
-    print(lines-2, 0, msg, A_YELLOW_BLACK);
+    va_list arglist;
+    va_start(arglist, msg);
+    vprint(lines-2, 0, A_YELLOW_BLACK, msg, arglist);
+    va_end(arglist);
 }
 
-void screen_set_prompt(const char* prompt)
+void screen_set_prompt(const char* prompt, ...)
 {
-    print(lines-1, 0, prompt, A_RED_BLACK);
+    va_list arglist;
+    va_start(arglist, prompt);
+    vprint(lines-1, 0, A_RED_BLACK, prompt, arglist);
+    va_end(arglist);
 }
 
 void screen_reset_prompt()
 {
-    print(lines-1, 0, "*", A_RED_BLACK);
+    print(lines-1, 0, A_RED_BLACK, "*");
     move(lines-1, 1);
 }
 
@@ -253,16 +264,27 @@ void resizeHandler(int sig)
 
 // INTERNAL
 
-void print(int y, int x, const char* line, chtype attr)
+void vprint(int y, int x, chtype attr, const char* line, va_list arglist)
 {
     STORE_POS(stdscr);
     move(y, x);
     attron(attr);
-    printw(line);
-    int count = columns - strlen(line);
-    while(count--) addch(' ');
+    vw_printw(stdscr, line, arglist);
+    int yy, xx;
+    getyx(stdscr, yy, xx);
+    int count = columns - xx + x;
+    while(--count >= 0)
+        addch(' ');
     attroff(attr);
     RESTORE_POS(stdscr);
+}
+
+void print(int y, int x, chtype attr, const char* line, ...)
+{
+    va_list arglist;
+    va_start(arglist, line);
+    vprint(y, x, attr, line, arglist);
+    va_end(arglist);
 }
 
 void draw_cursor()

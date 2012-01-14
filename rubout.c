@@ -6,11 +6,13 @@
 
 #include "rubout.h"
 #include "stack.h"
+#include "exception.h"
+#include <stdio.h>
 
 // DEFINES
 
 #define RUBOUT_PTR_COUNT 256
-#define RUBOUT_PTR_TYPE  signed char
+#define RUBOUT_PTR_TYPE  unsigned char
 
 // FORWARDS
 
@@ -26,16 +28,17 @@ int rubout_ptr_count;
 int stk_counter_inc(void* elem, int size)
 {
     char* count = (char*) elem;
-    (*count)++;
-    return STACK_EXEC_SUCCESS;
+    ++*count;
+    return 0;
 }
 
 RUBOUT_PTR_TYPE get_intern(rubout_func* f)
 {
     RUBOUT_PTR_TYPE i;
-    for(i=0; i<RUBOUT_PTR_COUNT; i++)
+    for(i=0; i<RUBOUT_PTR_COUNT; ++i)
     {
-        if(rubout_ptr[i] == f) return i;
+        if(rubout_ptr[i] == f)
+            return i;
     }
     return 0;
 }
@@ -71,45 +74,45 @@ void rubout()
     }
 }
 
-DEBUGIZE_1(int, rubout_register_s, rubout_func* f)
+DEBUGIZE_1(void, rubout_register_s, rubout_func* f)
 {
     RUBOUT_PTR_TYPE g = get_intern(f);
-    if(g == 0) return RUBOUT_FAILURE;
-    DEBUG(
+    if(!g)
+        THROW(EXCEPTION_FUNCTION_MISSING);
+    DEBUG
+    (
         stack_push_s(&g, &stk_rubout),
         stack_push_s_dbg(&g, &stk_rubout, dbg_arg, dbg_func)
     );
     stack_exec(&stk_counter);
-    char counter;
-    stack_top(&counter, &stk_counter);
-    return RUBOUT_SUCCESS;
 }
 
-DEBUGIZE_3(int, rubout_register, rubout_func* f, void* data, int size)
+DEBUGIZE_3(void, rubout_register, rubout_func* f, void* data, int size)
 {
 #ifdef NDEBUG
     rubout_save(data, size);
-    return rubout_register_s(f);
+    rubout_register_s(f);
 #else
     rubout_save_dbg(data, size, dbg_arg2, dbg_arg3, dbg_func);
-    return rubout_register_s_dbg(f, dbg_arg1, dbg_func);
+    rubout_register_s_dbg(f, dbg_arg1, dbg_func);
 #endif
 }
 
 DEBUGIZE_2(void, rubout_save, void* data, int size)
 {
-    DEBUG(
+    DEBUG
+    (
         stack_push(data, size, &stk_rubout),
         stack_push_dbg(data, size, &stk_rubout, dbg_arg1, dbg_arg2, dbg_func)
     );
 }
 
-int rubout_load(void* data)
+void rubout_load(void* data)
 {
-    return stack_pop(data, &stk_rubout);
+    stack_pop(data, &stk_rubout);
 }
 
-int rubout_info()
+int rubout_topsize()
 {
     struct stack_elem e = stack_top_p(&stk_rubout);
     return e.size;
@@ -119,7 +122,8 @@ void rubout_start()
 {
     char counter = 0;
     stack_push_s(&counter, &stk_counter);
-    if(break_lvl > 0) break_lvl++;
+    if(break_lvl > 0)
+        ++break_lvl;
 }
 
 void rubout_end()
@@ -130,16 +134,13 @@ void rubout_end()
         stack_pop(&counter, &stk_counter);
         stack_push(&counter, sizeof(char), &stk_rubout);
         if(!stack_empty(&stk_counter))
-        {
             stack_push_s(&rubout, &stk_rubout);
-        }
         else
-        {
             DEBUG_LOG_F(stk_rubout.file, "registered %i rubouts, %i bytes used\n",
-                counter, stk_rubout.ptr-stk_rubout.stack);
-        }
+                counter, stack_used_bytes(&stk_rubout));
     }
-    if(break_lvl > 0) break_lvl--;
+    if(break_lvl > 0)
+        --break_lvl;
 }
 
 void rubout_clear()
@@ -155,15 +156,9 @@ void rubout_break()
     break_lvl = 1;
 }
 
-int rubout_ptr_register(rubout_func* f)
+void rubout_ptr_register(rubout_func* f)
 {
     if(rubout_ptr_count == RUBOUT_PTR_COUNT)
-    {
-        return RUBOUT_FAILURE;
-    }
-    else
-    {
-        rubout_ptr[rubout_ptr_count++] = f;
-        return RUBOUT_SUCCESS;
-    }
+        THROW(EXCEPTION_BUFFER_OVERFLOW);
+    rubout_ptr[rubout_ptr_count++] = f;
 }

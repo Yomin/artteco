@@ -17,6 +17,11 @@
 #define BUFFER_STATUS_EXHAUSTED 4   // fills rest of file line
 #define BUFFER_STATUS_LAST      8   // last line to display
 
+#define BUFFER_ERROR_FILE_NOT_FOUND -1
+#define BUFFER_ERROR_FILE_NAME_SIZE -2
+#define BUFFER_ERROR_CURSOR_BEGIN   -3
+#define BUFFER_ERROR_CURSOR_END     -4
+
 struct buffer_line
 {
     int status; // line properties
@@ -33,16 +38,18 @@ struct buffer_state
     struct file_state file;
 };
 
-struct buffer_state* buffer_init(const char* name, int number, struct buffer_state* buffer);
+void buffer_init(const char* name, int number, struct buffer_state* buffer);
 void buffer_close(struct buffer_state* buffer);
-struct buffer_state* buffer_load(const char* file, struct buffer_state* buffer);
-struct buffer_state* buffer_write_str(const char* str, struct buffer_state* buffer);
-struct buffer_state* buffer_delete_str(int count, struct buffer_state* buffer);
-struct buffer_state* buffer_write_char(char c, struct buffer_state* buffer);
-struct buffer_state* buffer_delete_char(struct buffer_state* buffer);
-struct buffer_state* buffer_scroll(int lines, struct buffer_state* buffer);
+int  buffer_load(const char* file, struct buffer_state* buffer);
+
+int buffer_write_str(const char* str, struct buffer_state* buffer);
+int buffer_delete_str(int count, struct buffer_state* buffer);
+int buffer_write_char(char c, struct buffer_state* buffer);
+int buffer_delete_char(struct buffer_state* buffer);
+
+int  buffer_scroll(int lines, struct buffer_state* buffer);
 void buffer_display(struct buffer_state* buffer);
-int buffer_move_cursor(int amount, struct buffer_state* buffer);
+int  buffer_move_cursor(int amount, struct buffer_state* buffer);
 
 void buffer_register_rubouts();
 

@@ -74,9 +74,9 @@ struct cmd_ret ret(int ret, int value)
     return s;
 }
 
-struct cmd_ret empty(char* str)
+void cmd_ecf_empty(char c)
 {
-    return ret(CMD_RET_SUCCESS, 0);
+    // nothing to do
 }
 
 
@@ -88,9 +88,7 @@ struct cmd_ret empty(char* str)
 struct cmd_ret std_escape(int given, int param)
 {
     if(parse_check_func())
-    {
         return ret(CMD_RET_FINISH, 0);
-    }
     else
     {
         cmd_func* f = parse_get_func();
@@ -105,11 +103,11 @@ struct cmd_ret std_move_forward(int given, int param)
 {
     switch(buffer_move_cursor(param, buffer_mgr_current()))
     {
-        case 1:
+        case BUFFER_ERROR_CURSOR_BEGIN:
             screen_set_msg("buffer begin");
             return ret(CMD_RET_FAILURE, 0);
             break;
-        case 2:
+        case BUFFER_ERROR_CURSOR_END:
             screen_set_msg("buffer end");
             return ret(CMD_RET_FAILURE, 0);
             break;
@@ -127,19 +125,25 @@ void std_insert_ecf(char c)
     buffer_write_char(c, buffer_mgr_current());
 }
 
+struct cmd_ret std_insert_func(char* str)
+{
+    parse_register_ecf(cmd_ecf_empty);
+    return ret(CMD_RET_SUCCESS, 0);
+}
+
 struct cmd_ret std_insert(int given, int param)
 {
     if(given)
     {
-        if(param < 0 || param > 255) return ret(CMD_RET_FAILURE, 0);
+        if(param < 0 || param > 255)
+            return ret(CMD_RET_FAILURE, 0);
         buffer_write_char((char)param, buffer_mgr_current());
     }
     else
     {
-        parse_register_func(empty);
+        parse_register_func(std_insert_func);
         parse_register_ecf(std_insert_ecf);
     }
-    
     return ret(CMD_RET_SUCCESS, 0);
 }
 
@@ -148,7 +152,8 @@ struct cmd_ret std_insert(int given, int param)
 
 struct cmd_ret std_sub(int given, int param)
 {
-    if(param > 0) parse_toggle_sign();
+    if(param > 0)
+        parse_toggle_sign();
     return ret(CMD_RET_SUCCESS|CMD_MASK_VALUE, -1);
 }
 
@@ -167,15 +172,10 @@ struct cmd_ret std_push(int given, int param)
 struct cmd_ret std_extra(int given, int param)
 {
     cmd_switch_table(TAB_EXTRA);
-    
     if(given)
-    {
         return ret(CMD_RET_SUCCESS|CMD_MASK_VALUE, param);
-    }
     else
-    {
         return ret(CMD_RET_SUCCESS, 0);
-    }
 }
 
 // == EXTRA CMDs ===============================================================
@@ -210,15 +210,16 @@ struct cmd_ret extra_buffer_load_func(char* str)
     }
     else
     {
-        if(!buffer_mgr_add_file(basename(str), str))
+        switch(buffer_mgr_add_file(basename(str), str))
         {
-            screen_set_msg("file not found");
-            return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
+            case BUFFER_MGR_ERROR_FILE_NOT_FOUND:
+                screen_set_msg("file not found");
+                return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
+            case BUFFER_MGR_ERROR_FILE_NAME_SIZE:
+                screen_set_msg("filename to long");
+                return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
         }
-        else
-        {
-            return ret(CMD_RET_SUCCESS, 0);
-        }
+        return ret(CMD_RET_SUCCESS, 0);
     }
 }
 
@@ -241,9 +242,7 @@ struct cmd_ret extra_buffer_load(int given, int param)
         }
     }
     else
-    {
         parse_register_func(extra_buffer_load_func);
-    }
     
     cmd_switch_table(TAB_STD);
     

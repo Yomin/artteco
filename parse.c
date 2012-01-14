@@ -9,6 +9,7 @@
 #include "rubout.h"
 #include "help.h"
 #include "screen.h"
+#include "exception.h"
 
 #include <stdlib.h>
 
@@ -23,6 +24,8 @@
 #define ARG_MISSING   0
 #define ARG_AVAILABLE 1
 
+#define STATUS_EXIT    0
+#define STATUS_ERROR   1
 #define STATUS_SUCCESS -1
 #define STATUS_FAILURE -2
 
@@ -39,7 +42,7 @@ void parse_register_rubouts();
 
 struct stack_state stk_input, stk_func, stk_gen, stk_after;
 cmd_ecf* ecf;
-signed char sign;           // sign for next argument
+char sign;                  // sign for next argument
 int arg_mode, arg_value;    // argument from last for next cmd
 
 // EXTERNAL
@@ -75,9 +78,7 @@ int parse_input(char c)
     if(c == BACKSPACE)
     {
         if(!stack_empty(&stk_input))
-        {
             rubout();
-        }
     }
     else
     {
@@ -85,30 +86,20 @@ int parse_input(char c)
         if(stack_empty(&stk_func))
         {
             if(is_numeric(c))
-            {
                 process_param_num(c);
-            }
             else
-            {
                 ret = process_cmd(c);
-            }
         }
         else
         {
             if(c == ESCAPE)
-            {
                 ret = process_cmd(c);
-            }
             else
-            {
                 process_param_str(c);
-            }
         }
         rubout_end();
         if(ret == STATUS_FAILURE)
-        {
             rubout();
-        }
     }
     return ret;
 }
@@ -153,7 +144,7 @@ void parse_register_data_rubout()
 
 void parse_register_data(void* data, int size)
 {
-    stack_push(data, size, &stk_gen);
+    stack_push(&data, sizeof(cmd_func*), &stk_gen);
     rubout_register_s(parse_register_data_rubout);
 }
 
@@ -209,7 +200,7 @@ char* parse_get_param()
 
 void parse_get_data_rubout()
 {
-    int size = rubout_info();
+    int size = rubout_topsize();
     void* data = stack_push(0, size, &stk_gen);
     rubout_load(data);
 }
@@ -227,7 +218,7 @@ void parse_toggle_sign_rubout()
 
 void parse_toggle_sign()
 {
-    rubout_register(parse_toggle_sign_rubout, &sign, sizeof(signed char));
+    rubout_register(parse_toggle_sign_rubout, &sign, sizeof(char));
     sign = sign==1 ? -1 : 1;
 }
 
@@ -238,21 +229,23 @@ void set_sign_rubout()
     rubout_load(&sign);
 }
 
-void set_sign(signed char mode)
+void set_sign(char mode)
 {
-    rubout_register(set_sign_rubout, &sign, sizeof(signed char));
+    rubout_register(set_sign_rubout, &sign, sizeof(char));
     sign = mode;
 }
 
 void set_arg_rubout()
 {
     rubout_load(&arg_mode);
-    if(arg_mode) rubout_load(&arg_value);
+    if(arg_mode)
+        rubout_load(&arg_value);
 }
 
 void set_arg(char mode, int arg)
 {
-    if(arg_mode) rubout_save(&arg_value, sizeof(int));
+    if(arg_mode)
+        rubout_save(&arg_value, sizeof(int));
     rubout_register(set_arg_rubout, &arg_mode, sizeof(char));
     arg_mode = mode;
     arg_value = arg;
@@ -378,7 +371,7 @@ int process_cmd(char c)
                     screen_set_msg("cmd failed");
                 }
                 return STATUS_FAILURE;
-                
+            
             case CMD_RET_FINISH:
                 while(!stack_empty(&stk_after))
                 {
@@ -387,10 +380,10 @@ int process_cmd(char c)
                     switch(a())
                     {
                         case CMD_RET_FAILURE:
-                            return 2;
+                            return STATUS_ERROR;
                             break;
                         case CMD_RET_EXIT:
-                            return 0;
+                            return STATUS_EXIT;
                             break;
                     }
                 }
@@ -398,7 +391,7 @@ int process_cmd(char c)
                 break;
                 
             case CMD_RET_EXIT:
-                return 0;
+                return STATUS_EXIT;
         }
     }
     return STATUS_SUCCESS;

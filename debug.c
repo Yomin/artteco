@@ -22,7 +22,8 @@ FILE* dbgfile;
 
 void debug_log_v(const char* func, FILE* file, const char* format, va_list arglist)
 {
-    if(!file) file = dbgfile;
+    if(!file)
+        file = dbgfile;
     fputs(func, file);
     fputs(": ", file);
     vfprintf(file, format, arglist);

@@ -29,9 +29,9 @@ int screen_get_columns();
 int screen_get_buffer_lines();
 int screen_get_buffer_columns();
 
-void screen_set_status(const char* status);
-void screen_set_msg(const char* msg);
-void screen_set_prompt(const char* prompt);
+void screen_set_status(const char* status, ...);
+void screen_set_msg(const char* msg, ...);
+void screen_set_prompt(const char* prompt, ...);
 void screen_reset_prompt();
 
 void screen_set_line(int num, const char* line);
