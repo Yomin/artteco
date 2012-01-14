@@ -40,6 +40,7 @@ void* list_get(int nth, struct list_state* list);
 void* list_get_c(int nth, struct list_state* list);
 
 void* list_current(struct list_state* list);
+void* list_last(struct list_state* list);
 void* list_next(struct list_state* list);
 void* list_next_s(struct list_state* list);
 void* list_prev(struct list_state* list);

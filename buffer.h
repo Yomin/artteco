@@ -22,18 +22,11 @@
 #define BUFFER_ERROR_CURSOR_BEGIN   -3
 #define BUFFER_ERROR_CURSOR_END     -4
 
-struct buffer_line
-{
-    int status; // line properties
-    int offset; // character offset in file line
-    int size;   // size of buffer line
-};
-
 struct buffer_state
 {
     char name[BUFFER_NAME_SIZE];
     int number, linenumber;
-    struct buffer_line* lines;
+    struct list_state lines;
     struct stack_state stack;
     struct file_state file;
 };

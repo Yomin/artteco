@@ -16,10 +16,17 @@
 
 #define MIN(x,y) ((x)<(y) ? (x) : (y))
 
+struct buffer_line
+{
+    int status; // line properties
+    int offset; // character offset in file line
+    int size;   // size of buffer line
+};
+
 struct load_state
 {
     int counter, numlines, numcolumns;
-    struct buffer_line* lines;
+    struct list_state* lines;
 };
 
 // FORWARDS
@@ -37,23 +44,18 @@ void buffer_init(const char* name, int number, struct buffer_state* buffer)
     buffer->name[MIN(strlen(name), BUFFER_NAME_SIZE-1)] = 0;
     buffer->number = number;
     
-    int lines = screen_get_buffer_lines();
-    buffer->lines = (struct buffer_line*) malloc(lines*sizeof(struct buffer_line));
-    if(!buffer->lines)
-        THROW(EXCEPTION_NO_MEMORY);
-    memset(buffer->lines, 0, lines*sizeof(struct buffer_line));
-    buffer->lines[0].status |= BUFFER_STATUS_LAST;
+    list_init(sizeof(struct buffer_line), &buffer->lines);
+    struct buffer_line* line = (struct buffer_line*) list_add_sc(&buffer->lines);
+    line->status |= BUFFER_STATUS_LAST;
 
     stack_init(STACK_MODE_SIMPLE, sizeof(char), name, &buffer->stack);
-    
     file_init(&buffer->file);
-    list_get(0, &buffer->file.chunks); // set current
     buffer->linenumber = 0;
 }
 
 void buffer_close(struct buffer_state* buffer)
 {
-    free(buffer->lines);
+    list_clear(&buffer->lines);
     file_close(&buffer->file);
     stack_finish(&buffer->stack);
 }
@@ -74,13 +76,14 @@ int buffer_load(const char* file, struct buffer_state* buffer)
     state.counter = 0;
     state.numlines = screen_get_buffer_lines();
     state.numcolumns = screen_get_buffer_columns();
-    state.lines = buffer->lines;
+    state.lines = &buffer->lines;
     
-    buffer->lines[0].status = 0;
+    ((struct buffer_line*)list_get(0, &buffer->lines))->status = 0;
     list_fold(load_lines, &state, &chunk->lines);
-    buffer->lines[state.counter].status |= BUFFER_STATUS_LAST;
+    struct buffer_line* last = (struct buffer_line*) list_last(&buffer->lines);
+    last->status |= BUFFER_STATUS_LAST;
     if(state.counter < state.numlines-1)
-        buffer->lines[state.counter].status &= ~BUFFER_STATUS_CONTINUED;
+        last->status &= ~BUFFER_STATUS_CONTINUED;
     
     return 0;
 }
@@ -155,10 +158,10 @@ void buffer_display(struct buffer_state* buffer)
     struct file_chunk* chunk = (struct file_chunk*) list_current(&buffer->file.chunks);
     struct file_line* f_line = (struct file_line*) list_get(buffer->linenumber, &chunk->lines);
     
+    struct buffer_line* b_line = (struct buffer_line*) list_get_c(0, &buffer->lines);
+    
     for(i=0;i<max;++i)
     {
-        struct buffer_line* b_line = &buffer->lines[i];
-        
         int offset = 0;
         int size = b_line->size;
         char* ptr = &f_line->line[b_line->offset];
@@ -191,6 +194,7 @@ void buffer_display(struct buffer_state* buffer)
                 f_line = (struct file_line*) list_get(0, &chunk->lines);
             }
         }
+        b_line = (struct buffer_line*) list_next(&buffer->lines);
     }
     
     screen_set_cursor(0, 0);
@@ -233,28 +237,29 @@ void load_lines(void* elem, void* akk)
     if(!state->lines)
         return;   // already done
     
-    int i = 0, offset = 0, size = state->lines[state->counter].size;
+    struct buffer_line* last = (struct buffer_line*) list_last(state->lines);
+    int i = 0, offset = 0, size = last->size;
     
     for(; i < line->size; ++i, ++size)
     {
         if(line->line[i] == '\n' || size == state->numcolumns)
         {
-            state->lines[state->counter].size = size;
+            last->size = size;
             
-            if(state->lines[state->counter].status & BUFFER_STATUS_CONTINUED)
+            if(last->status & BUFFER_STATUS_CONTINUED)
             {
                 if(i == 0)
                 {
-                    state->lines[state->counter].status &= ~BUFFER_STATUS_CONTINUED;
-                    state->lines[state->counter].status |= BUFFER_STATUS_EXHAUSTED;
+                    last->status &= ~BUFFER_STATUS_CONTINUED;
+                    last->status |= BUFFER_STATUS_EXHAUSTED;
                 }
             }
             else
-                state->lines[state->counter].offset = offset;
+                last->offset = offset;
             
             if(line->line[i] == '\n')
             {
-                state->lines[state->counter].status |= BUFFER_STATUS_NEWLINE;
+                last->status |= BUFFER_STATUS_NEWLINE;
                 offset = i+1;   // forget newline
                 size = -1;      // "
             }
@@ -264,25 +269,28 @@ void load_lines(void* elem, void* akk)
                 size = 0;       // "
             }
             
-            ++state->counter;
-            if(state->counter == state->numlines)
+            if(state->counter+1 == state->numlines)
             {
-                --state->counter;   // ptr to last
                 state->lines = 0;   // remember done
                 return;
             }
+            else
+            {
+                ++state->counter;
+                last = (struct buffer_line*) list_add_s(state->lines);
+            }
             
-            state->lines[state->counter].status = 0;
+            last->status = 0;
         }
     }
     
     if(offset == i)
-        state->lines[state->counter].status |= BUFFER_STATUS_EXHAUSTED;
+        last->status |= BUFFER_STATUS_EXHAUSTED;
     else if(offset < i)
     {
-        state->lines[state->counter].status |= BUFFER_STATUS_CONTINUED;
-        state->lines[state->counter].size = size;
-        state->lines[state->counter].offset = offset;
+        last->status |= BUFFER_STATUS_CONTINUED;
+        last->size = size;
+        last->offset = offset;
     }
 }
 

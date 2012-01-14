@@ -211,6 +211,13 @@ void* list_current(struct list_state* list)
     return list->current->elem;
 }
 
+void* list_last(struct list_state* list)
+{
+    if(!list->last)
+        return 0;
+    return list->last->elem;
+}
+
 void* list_next(struct list_state* list)
 {
     if(!list->current || !list->current->next)
