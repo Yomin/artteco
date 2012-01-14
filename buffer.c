@@ -156,7 +156,7 @@ void buffer_display(struct buffer_state* buffer)
     
     int i, max = screen_get_buffer_lines();
     struct file_chunk* chunk = (struct file_chunk*) list_current(&buffer->file.chunks);
-    struct file_line* f_line = (struct file_line*) list_get(buffer->linenumber, &chunk->lines);
+    struct file_line* f_line = (struct file_line*) list_get_c(buffer->linenumber, &chunk->lines);
     
     struct buffer_line* b_line = (struct buffer_line*) list_get_c(0, &buffer->lines);
     
