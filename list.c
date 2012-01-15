@@ -50,7 +50,7 @@ int list_intern_fold(void* elem, void* param)
     return 0;
 }
 
-struct list_elem* list_intern_add(void* elem, struct list_state* list)
+struct list_elem* list_intern_gen(void* elem, struct list_state* list)
 {
     struct list_elem* lelem = (struct list_elem*) malloc(sizeof(struct list_elem));
     if(!lelem)
@@ -63,6 +63,12 @@ struct list_elem* list_intern_add(void* elem, struct list_state* list)
         memcpy(lelem->elem, elem, list->elemsize);
     else
         memset(lelem->elem, 0, list->elemsize);
+    return lelem;
+}
+
+struct list_elem* list_intern_add(void* elem, struct list_state* list)
+{
+    struct list_elem* lelem = list_intern_gen(elem, list);
     if(!list->first)
     {
         list->first = lelem;
@@ -75,6 +81,7 @@ struct list_elem* list_intern_add(void* elem, struct list_state* list)
         lelem->prev = list->last;
         list->last = lelem;
     }
+    ++list->size;
     return lelem;
 }
 
@@ -90,14 +97,27 @@ void list_intern_remove(struct list_elem* elem, struct list_state* list)
         elem->next->prev = elem->prev;
     free(elem->elem);
     free(elem);
+    --list->size;
 }
 
-struct list_elem* list_intern_get(int nth, struct list_state* list)
+struct list_elem* list_intern_get(int pos, struct list_state* list)
 {
-    struct list_elem* elem = list->first;
-    while(elem && --nth >= 0)
-        elem = list->current->next;
-    return elem;
+    if(pos >= list->size) return 0;
+    if(pos >= list->size/2)
+    {
+        pos = list->size - pos -1;
+        struct list_elem* elem = list->last;
+        while(elem && --pos >= 0)
+            elem = elem->prev;
+        return elem;
+    }
+    else
+    {
+        struct list_elem* elem = list->first;
+        while(elem && --pos >= 0)
+            elem = elem->next;
+        return elem;
+    }
 }
 
 // EXTERNAL
@@ -105,6 +125,7 @@ struct list_elem* list_intern_get(int nth, struct list_state* list)
 void list_init(int elemsize, struct list_state* list)
 {
     list->elemsize = elemsize;
+    list->size = 0;
     list->first = 0;
     list->last = 0;
     list->current = 0;
@@ -132,6 +153,15 @@ void* list_add_sc(struct list_state* list)
     return list->current->elem;
 }
 
+int list_delete(int pos, struct list_state* list)
+{
+    struct list_elem* elem = list_intern_get(pos, list);
+    if(!elem)
+        return -1;
+    list_intern_remove(elem, list);
+    return 0;
+}
+
 int list_remove(matchFunc* f, void* param, struct list_state* list)
 {
     struct list_elem* elem = list_intern_iterate(f, param, list);
@@ -147,6 +177,60 @@ int list_remove_current(struct list_state* list)
         return -1;
     list_intern_remove(list->current, list);
     return 0;
+}
+
+void* list_insert(int pos, void* elem, struct list_state* list)
+{
+    struct list_elem* felem = list_intern_get(pos, list);
+    if(felem)
+    {
+        struct list_elem* lelem = list_intern_gen(elem, list);
+        lelem->prev = felem->prev;
+        if(felem->prev)
+            felem->prev->next = lelem;
+        lelem->next = felem;
+        felem->prev = lelem;
+        ++list->size;
+        return lelem;
+    }
+    if(pos == list->size)
+    {
+        struct list_elem* lelem = list_intern_gen(elem, list);
+        lelem->prev = list->last;
+        list->last->next = lelem;
+        lelem->next = 0;
+        ++list->size;
+        return lelem;
+    }
+    return 0;
+}
+
+void* list_insert_after(matchFunc* f, void* param, void* elem, struct list_state* list)
+{
+    struct list_elem* felem = list_intern_iterate(f, param, list);
+    if(!felem)
+        return 0;
+    struct list_elem* lelem = list_intern_gen(elem, list);
+    lelem->next = felem->next;
+    if(felem->next)
+        felem->next->prev = lelem;
+    felem->next = lelem;
+    lelem->prev = felem;
+    return lelem;
+}
+
+void* list_insert_before(matchFunc* f, void* param, void* elem, struct list_state* list)
+{
+    struct list_elem* felem = list_intern_iterate(f, param, list);
+    if(!felem)
+        return 0;
+    struct list_elem* lelem = list_intern_gen(elem, list);
+    lelem->prev = felem->prev;
+    if(felem->prev)
+        felem->prev->next = lelem;
+    felem->prev = lelem;
+    lelem->next = felem;
+    return lelem;
 }
 
 void list_clear_f(mapFunc* f, struct list_state* list)
@@ -187,17 +271,17 @@ void* list_find_c(matchFunc* f, void* param, struct list_state* list)
     return found->elem;
 }
 
-void* list_get(int nth, struct list_state* list)
+void* list_get(int pos, struct list_state* list)
 {
-    struct list_elem* elem = list_intern_get(nth, list);
+    struct list_elem* elem = list_intern_get(pos, list);
     if(!elem)
         return 0;
     return elem->elem;
 }
 
-void* list_get_c(int nth, struct list_state* list)
+void* list_get_c(int pos, struct list_state* list)
 {
-    struct list_elem* elem = list_intern_get(nth, list);
+    struct list_elem* elem = list_intern_get(pos, list);
     if(!elem)
         return 0;
     list->current = elem;
