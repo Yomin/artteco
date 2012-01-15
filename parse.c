@@ -200,7 +200,7 @@ char* parse_get_param()
 
 void parse_get_data_rubout()
 {
-    int size = rubout_topsize();
+    int size = rubout_top_size();
     void* data = stack_push(0, size, &stk_gen);
     rubout_load(data);
 }

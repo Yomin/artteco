@@ -57,11 +57,11 @@ void delete(int number)
 
 int add(const char* name, int number, const char* file)
 {
-    struct buffer_state buf;
-    buffer_init(name, number, &buf);
+    struct buffer_state* current = list_add_c(0, &buffer_list);
+    buffer_init(name, number, current);
     if(file)
     {
-        switch(buffer_load(file, &buf))
+        switch(buffer_load(file, current))
         {
             case BUFFER_ERROR_FILE_NOT_FOUND:
                 return BUFFER_MGR_ERROR_FILE_NOT_FOUND;
@@ -69,7 +69,6 @@ int add(const char* name, int number, const char* file)
                 return BUFFER_MGR_ERROR_FILE_NAME_SIZE;
         }
     }
-    struct buffer_state* current = list_add_c(&buf, &buffer_list);
     buffer_display(current);
     return 0;
 }

@@ -98,12 +98,12 @@ DEBUGIZE_3(void, rubout_register, rubout_func* f, void* data, int size)
 #endif
 }
 
-DEBUGIZE_2(void, rubout_save, void* data, int size)
+DEBUGIZE_2(void*, rubout_save, void* data, int size)
 {
     DEBUG
     (
-        stack_push(data, size, &stk_rubout),
-        stack_push_dbg(data, size, &stk_rubout, dbg_arg1, dbg_arg2, dbg_func)
+        return stack_push(data, size, &stk_rubout),
+        return stack_push_dbg(data, size, &stk_rubout, dbg_arg1, dbg_arg2, dbg_func)
     );
 }
 
@@ -112,10 +112,16 @@ void rubout_load(void* data)
     stack_pop(data, &stk_rubout);
 }
 
-int rubout_topsize()
+int rubout_top_size()
 {
     struct stack_elem e = stack_top_p(&stk_rubout);
     return e.size;
+}
+
+void* rubout_top_ptr()
+{
+    struct stack_elem e = stack_top_p(&stk_rubout);
+    return e.ptr;
 }
 
 void rubout_start()

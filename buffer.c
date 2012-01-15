@@ -23,6 +23,22 @@ struct buffer_line
     int size;   // size of buffer line
 };
 
+#define OP_ADD 0
+#define OP_DEL 1
+#define OP_MOV 2
+
+struct buffer_op
+{
+    char mode;
+    char c;
+};
+
+struct buffer_mov
+{
+    char mode;
+    int x, y;
+};
+
 struct load_state
 {
     int counter, numlines, numcolumns;
@@ -34,7 +50,7 @@ struct load_state
 void load_lines(void* elem, void* akk);
 
 int buffer_write(const char* str, struct buffer_state* buffer);
-int buffer_delete(int count, struct buffer_state* buffer);
+int buffer_delete(int count, char* buf, struct buffer_state* buffer);
 
 // EXTERNAL
 
@@ -48,7 +64,7 @@ void buffer_init(const char* name, int number, struct buffer_state* buffer)
     struct buffer_line* line = (struct buffer_line*) list_add_sc(&buffer->lines);
     line->status |= BUFFER_STATUS_LAST;
 
-    stack_init(STACK_MODE_SIMPLE, sizeof(char), name, &buffer->stack);
+    stack_init(STACK_MODE_SIMPLE, sizeof(struct buffer_op), name, &buffer->stack);
     file_init(&buffer->file);
     buffer->linenumber = 0;
 }
@@ -94,7 +110,7 @@ void buffer_write_str_rubout()
     int len;
     rubout_load(&buffer);
     rubout_load(&len);
-    buffer_delete(len, buffer);
+    buffer_delete(len, 0, buffer);
 }
 
 int buffer_write_str(const char* str, struct buffer_state* buffer)
@@ -119,14 +135,20 @@ void buffer_delete_str_rubout()
 {
     struct buffer_state* buffer;
     rubout_load(&buffer);
-    // load/insert characters
+    char* buf = rubout_top_ptr();
+    buffer_write_str(buf, buffer);
+    rubout_load(0);
 }
 
 int buffer_delete_str(int count, struct buffer_state* buffer)
 {
-    // get characters
-    if(buffer_delete(count, buffer))
+    char* buf = rubout_save(0, count+1);
+    if(buffer_delete(count, buf, buffer))
+    {
+        rubout_load(0);
         return -1;
+    }
+    buf[count] = 0;
     rubout_register(buffer_delete_str_rubout, &buffer, sizeof(struct buffer_state*));
     return 0;
 }
@@ -203,6 +225,9 @@ void buffer_display(struct buffer_state* buffer)
 
 void buffer_move_cursor_rubout()
 {
+    struct buffer_state* buffer;
+    rubout_load(&buffer);
+    stack_pop_s(&buffer->stack);
     int amount;
     rubout_load(&amount);
     if(amount < 0) screen_move_cursor(SCREEN_CURSOR_FORWARD);
@@ -212,11 +237,22 @@ void buffer_move_cursor_rubout()
 
 int buffer_move_cursor(int amount, struct buffer_state* buffer)
 {
-    // todo
+    int y, x;
+    screen_get_cursor(&y, &x);
+    struct buffer_mov mov;
+    stack_top(&mov, &buffer->stack);
+    if(mov.mode == OP_MOV)
+        stack_pop_s(&buffer->stack);
+    mov.mode = OP_MOV;
+    mov.x = x;
+    mov.y = y;
+    stack_push(&mov, sizeof(struct buffer_mov), &buffer->stack);
+
     if(amount > 0) screen_move_cursor(SCREEN_CURSOR_FORWARD);
     if(amount < 0) screen_move_cursor(SCREEN_CURSOR_BACKWARD);
     screen_refresh();
-    rubout_register(buffer_move_cursor_rubout, &amount, sizeof(int));
+    rubout_save(&amount, sizeof(int));
+    rubout_register(buffer_move_cursor_rubout, &buffer, sizeof(struct buffer_state*));
     return 0;
 }
 
@@ -296,23 +332,65 @@ void load_lines(void* elem, void* akk)
 
 int buffer_write(const char* str, struct buffer_state* buffer)
 {
+    struct buffer_op op;
+    int lookup = 1, size;
     while(*str)
     {
-        // buffer todo
-        screen_input_text(*str);
+        if(lookup)
+        {
+            size = stack_top_e(&op, &buffer->stack);
+            if(size >= 0 && op.mode == OP_DEL && op.c == *str)
+                stack_pop_s(&buffer->stack);
+            else
+            {
+                op.mode = OP_ADD;
+                op.c = *str;
+                stack_push_s(&op, &buffer->stack);
+                lookup = 0;
+            }
+            screen_input_text(*str);
+        }
+        else
+        {
+            screen_input_text(*str);
+            op.c = *str;
+            stack_push_s(&op, &buffer->stack);
+        }
         ++str;
     }
     screen_refresh();
     return 0;
 }
 
-int buffer_delete(int count, struct buffer_state* buffer)
+int buffer_delete(int count, char* buf, struct buffer_state* buffer)
 {
-    while(count > 0)
+    struct buffer_op op;
+    int lookup = 1, size;
+    char c;
+    while(--count >= 0)
     {
-        // buffer todo
-        screen_delete_text();
-        --count;
+        if(lookup)
+        {
+            c = screen_delete_text();
+            size = stack_top_e(&op, &buffer->stack);
+            if(size >= 0 && op.mode == OP_ADD && op.c == c)
+                stack_pop_s(&buffer->stack);
+            else
+            {
+                op.mode = OP_DEL;
+                op.c = c;
+                stack_push_s(&op, &buffer->stack);
+                lookup = 0;
+            }
+        }
+        else
+        {
+            c = screen_delete_text();
+            op.c = c;
+            stack_push_s(&op, &buffer->stack);
+        }
+        if(buf)
+            buf[count] = c;
     }
     screen_refresh();
     return 0;

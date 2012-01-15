@@ -13,17 +13,18 @@ typedef void rubout_func();
 
 void  rubout_init();
 void  rubout_finish();
-DEBUGIZE_1(void, rubout_register_s, rubout_func* f);
-DEBUGIZE_3(void, rubout_register, rubout_func* f, void* data, int size);
-DEBUGIZE_2(void, rubout_save, void* data, int size);
-void rubout_load(void* data);
-int  rubout_topsize();
-void rubout_start();
-void rubout_end();
-void rubout_break();
-void rubout_clear();
-void rubout();
-void rubout_ptr_register(rubout_func* f);
+DEBUGIZE_1(void,  rubout_register_s, rubout_func* f);
+DEBUGIZE_3(void,  rubout_register, rubout_func* f, void* data, int size);
+DEBUGIZE_2(void*, rubout_save, void* data, int size);
+void  rubout_load(void* data);
+int   rubout_top_size();
+void* rubout_top_ptr();
+void  rubout_start();
+void  rubout_end();
+void  rubout_break();
+void  rubout_clear();
+void  rubout();
+void  rubout_ptr_register(rubout_func* f);
 
 #ifndef NDEBUG
     #define rubout_register_s(f) rubout_register_s_dbg(f, STR(f), __func__)

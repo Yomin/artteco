@@ -180,6 +180,11 @@ void screen_set_cursor(int y, int x)
     draw_cursor();
 }
 
+void screen_get_cursor(int* y, int* x)
+{
+    getyx(win, *y, *x);
+}
+
 void screen_move_cursor(int dir)
 {
     undraw_cursor();
@@ -236,16 +241,19 @@ void screen_delete_prompt_r()
     refresh();
 }
 
-void screen_delete_text()
+char screen_delete_text()
 {
     MOVE_TEXT_BACKWARD();
+    char c = winch(win) & A_CHARTEXT;
     wdelch(win);
+    return c;
 }
 
-void screen_delete_text_r()
+char screen_delete_text_r()
 {
-    screen_delete_text();
+    char c = screen_delete_text();
     wrefresh(win);
+    return c;
 }
 
 void screen_scroll(int n)

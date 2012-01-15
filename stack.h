@@ -72,8 +72,11 @@ void stack_finish(struct stack_state* stack);
 
 int stack_pop(void* dst, struct stack_state* stack);
 int stack_pop_s(struct stack_state* stack);
+int stack_pop_e(void* dst, struct stack_state* stack);
+int stack_pop_se(struct stack_state* stack);
 
 int               stack_top(void* dst, struct stack_state* stack);
+int               stack_top_e(void* dst, struct stack_state* stack);
 struct stack_elem stack_top_p(struct stack_state* stack);
 
 int stack_empty(struct stack_state* stack);

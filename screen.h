@@ -37,6 +37,7 @@ void screen_reset_prompt();
 void screen_set_line(int num, const char* line);
 void screen_set_line_o(int num, int offset, const char* line);
 void screen_set_cursor(int y, int x);
+void screen_get_cursor(int* y, int* x);
 void screen_move_cursor(int dir);
 
 void screen_input_prompt_r(char c, int type);
@@ -45,8 +46,8 @@ void screen_input_text_r(char c);
 void screen_input_text(char c);
 void screen_delete_prompt_r();
 void screen_delete_prompt();
-void screen_delete_text_r();
-void screen_delete_text();
+char screen_delete_text_r();
+char screen_delete_text();
 
 void screen_scroll(int n);
 

@@ -174,6 +174,18 @@ int stack_pop_s(struct stack_state* stack)
     return stack_pop(0, stack);
 }
 
+int stack_pop_e(void* dst, struct stack_state* stack)
+{
+    if(stack_empty(stack)) return -1;
+    else return stack_pop(dst, stack);
+}
+
+int stack_pop_se(struct stack_state* stack)
+{
+    if(stack_empty(stack)) return -1;
+    else return stack_pop(0, stack);
+}
+
 struct stack_elem stack_top_p(struct stack_state* stack)
 {
     struct stack_elem elem;
@@ -199,6 +211,12 @@ int stack_top(void* dst, struct stack_state* stack)
     struct stack_elem elem = stack_top_p(stack);
     memcpy(dst, elem.ptr, elem.size);
     return elem.size;
+}
+
+int stack_top_e(void* dst, struct stack_state* stack)
+{
+    if(stack_empty(stack)) return -1;
+    else return stack_top(dst, stack);
 }
 
 int stack_empty(struct stack_state* stack)
