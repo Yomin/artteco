@@ -41,22 +41,28 @@ const char* get_type(const char* size)
 
 void* push(void* elem, int size, struct stack_state* stack)
 {
-    int ext = stack->mode == STACK_MODE_EXT;
-    int extsize = ext ? sizeof(unsigned char) : 0;
+    if(size >= (1 << sizeof(unsigned char)*8))
+        THROW(EXCEPTION_OBJECT_SIZE);
+    unsigned char csize = (unsigned char) size;
+    
+    int ext = stack->mode & STACK_MODE_EXT ? 1 : 0;
+    int queue = stack->mode & STACK_MODE_QUEUE ? 1 : 0;
+    int extrasize = (queue+1) * ext * sizeof(unsigned char);
     char* ptr = stack->ptr;
     
-    if(stack->ptr+size+extsize-stack->stack >= STACK_SIZE)
+    if(stack->ptr+size+extrasize-stack->stack >= STACK_SIZE)
         THROW(EXCEPTION_STACK_OVERFLOW);
-
+    
+    if(ext && queue)
+    {
+        memcpy(stack->ptr, &csize, sizeof(unsigned char));
+        stack->ptr += sizeof(unsigned char);
+    }
     if(elem)
         memcpy(stack->ptr, elem, size);
     stack->ptr += size;
     if(ext)
     {
-        if(size >= (1 << sizeof(unsigned char)*8))
-            THROW(EXCEPTION_OBJECT_SIZE);
-        
-        unsigned char csize = (unsigned char) size;
         memcpy(stack->ptr, &csize, sizeof(unsigned char));
         stack->ptr += sizeof(unsigned char);
     }
@@ -72,6 +78,7 @@ DEBUGIZE_2(void, stack_init, int mode, int size, const char* name, struct stack_
     stack->size = (unsigned char)size;
     stack->base = stack->stack;
     stack->ptr = stack->stack;
+    stack->queue = stack->stack;
     stack->stack[0] = 0;
     #ifndef NDEBUG
         sprintf(buf, "logs/stk_%s", name);
@@ -82,12 +89,14 @@ DEBUGIZE_2(void, stack_init, int mode, int size, const char* name, struct stack_
 
 void stack_init_s(const char* name, struct stack_state* stack)
 {
-    stack_init(STACK_MODE_EXT, sizeof(char), name, stack);
+    stack_init(STACK_MODE_SIMPLE, sizeof(char), name, stack);
 }
 
 void stack_clear(struct stack_state* stack)
 {
     stack->ptr = stack->stack;
+    stack->base = stack->stack;
+    stack->queue = stack->stack;
     *(stack->ptr) = 0;
 }
 
@@ -153,18 +162,22 @@ int stack_pop(void* dst, struct stack_state* stack)
     if(stack->ptr == stack->stack)
         THROW(EXCEPTION_STACK_EMPTY);
     unsigned char size;
-    if(stack->mode == STACK_MODE_EXT)
+    if(stack->mode & STACK_MODE_EXT)
     {
         memcpy(&size, stack->ptr-sizeof(unsigned char), sizeof(unsigned char));
         stack->ptr -= sizeof(unsigned char)+size;
+        if(dst)
+            memcpy(dst, stack->ptr, (int)size);
+        if(stack->mode & STACK_MODE_QUEUE)
+            stack->ptr -= sizeof(unsigned char);
     }
     else
     {
         size = stack->size;
         stack->ptr -= stack->size;
+        if(dst)
+            memcpy(dst, stack->ptr, (int)size);
     }
-    if(dst)
-        memcpy(dst, stack->ptr, (int)size);
     *(stack->ptr) = 0;
     return (int)size;
 }
@@ -277,4 +290,40 @@ int stack_exec(struct stack_state* stack)
 int stack_used_bytes(struct stack_state* stack)
 {
     return stack->ptr-stack->stack;
+}
+
+int stack_queue_get(void* elem, struct stack_state* stack)
+{
+    if(!(stack->mode & STACK_MODE_QUEUE))
+        THROW(EXCEPTION_WRONG_CONFIG);
+    if(stack->queue == stack->ptr)
+        THROW(EXCEPTION_QUEUE_EMPTY);
+    
+    unsigned char size;
+    if(stack->mode & STACK_MODE_EXT)
+    {
+        memcpy(&size, stack->queue, sizeof(unsigned char));
+        memcpy(elem, stack->queue+sizeof(unsigned char), size);
+        stack->queue += 2*sizeof(unsigned char) + size;
+    }
+    else
+    {
+        size = stack->size;
+        memcpy(elem, stack->queue, size);
+        stack->queue += size;
+    }
+    return size;
+}
+
+int stack_queue_get_e(void* elem, struct stack_state* stack)
+{
+    if(stack->queue == stack->ptr)
+        return -1;
+    else
+        return stack_queue_get(elem, stack);
+}
+
+void stack_queue_reset(struct stack_state* stack)
+{
+    stack->queue = stack->stack;
 }

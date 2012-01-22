@@ -103,6 +103,8 @@ const char* exception_str(int exc)
         case EXCEPTION_FUNCTION_MISSING: return "function missing";
         case EXCEPTION_OBJECT_SIZE:      return "object exceeds allowed size";
         case EXCEPTION_BUFFER_OVERFLOW:  return "buffer overflow";
+        case EXCEPTION_QUEUE_EMPTY:      return "queue empty";
+        case EXCEPTION_WRONG_CONFIG:     return "wrong configuration";
     }
     return "unknown exception";
 }

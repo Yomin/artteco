@@ -17,13 +17,14 @@
 
 #define STACK_MODE_SIMPLE 0
 #define STACK_MODE_EXT    1
+#define STACK_MODE_QUEUE  2
 
 typedef int stack_func(void* elem, int size);
 
 struct stack_state
 {
     char stack[STACK_SIZE+1];
-    char *base, *ptr;
+    char *base, *ptr, *queue;
     char mode;
     unsigned char size;
     stack_func* func;
@@ -94,5 +95,9 @@ void stack_set_func(stack_func* f, struct stack_state* stack);
 int stack_exec(struct stack_state* stack);
 
 int stack_used_bytes(struct stack_state* stack);
+
+int  stack_queue_get(void* elem, struct stack_state* stack);
+int  stack_queue_get_e(void* elem, struct stack_state* stack);
+void stack_queue_reset(struct stack_state* stack);
 
 #endif
