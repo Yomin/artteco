@@ -50,8 +50,10 @@ void stack_finish(struct stack_state* stack);
 
     void* stack_push(void* elem, int size, struct stack_state* stack);
     void* stack_push_s(void* elem, struct stack_state* stack);
-    void* stack_push_p(void* elemptr, int size, struct stack_state* stack);
-    void* stack_push_sp(void* elemptr, struct stack_state* stack);
+    void* stack_push_p(void* elemptr, struct stack_state* stack);
+    void* stack_push_v(long value, int size, struct stack_state* stack);
+    void* stack_push_vi(int value, struct stack_state* stack);
+    void* stack_push_vc(char value, struct stack_state* stack);
 
 #else
     
@@ -59,15 +61,19 @@ void stack_finish(struct stack_state* stack);
     
     #define stack_push(elem, size, stack) stack_push_dbg(elem, size, stack, STR(elem), STR(size), __func__)
     #define stack_push_s(elem, stack) stack_push_s_dbg(elem, stack, STR(elem), __func__)
-    #define stack_push_p(elemptr, size, stack) stack_push_p_dbg(elemptr, size, stack, STR(elemptr), STR(size), __func__)
-    #define stack_push_sp(elemptr, stack) stack_push_sp_dbg(elemptr, stack, STR(elemptr), __func__)
+    #define stack_push_p(elemptr, stack) stack_push_p_dbg(elemptr, stack, STR(elemptr), __func__)
+    #define stack_push_v(value, size, stack) stack_push_v_dbg(value, size, stack, STR(value), STR(size), __func__)
+    #define stack_push_vi(value, stack) stack_push_vi_dbg(value, stack, STR(value), __func__)
+    #define stack_push_vc(value, stack) stack_push_vc_dbg(value, stack, STR(value), __func__)
     
     void stack_init_dbg(int mode, int size, const char* name, struct stack_state* state, const char* dbg_mode, const char* dbg_size, const char* dbg_func);
     
     void* stack_push_dbg(void* elem, int size, struct stack_state* stack, const char* dbg_elem, const char* dbg_size, const char* dbg_func);
     void* stack_push_s_dbg(void* elem, struct stack_state* stack, const char* dbg_elem, const char* dbg_func);
-    void* stack_push_p_dbg(void* elemptr, int size, struct stack_state* stack, const char* dbg_elemptr, const char* dbg_size, const char* dbg_func);
-    void* stack_push_sp_dbg(void* elemptr, struct stack_state* stack, const char* dbg_elemptr, const char* dbg_func);
+    void* stack_push_p_dbg(void* elemptr, struct stack_state* stack, const char* dbg_elemptr, const char* dbg_func);
+    void* stack_push_v_dbg(long value, int size, struct stack_state* stack, const char* dbg_value, const char* dbg_size, const char* dbg_func);
+    void* stack_push_vi_dbg(int value, struct stack_state* stack, const char* dbg_value, const char* dbg_func);
+    void* stack_push_vc_dbg(char value, struct stack_state* stack, const char* dbg_value, const char* dbg_func);
 
 #endif
 
@@ -79,6 +85,7 @@ int stack_pop_se(struct stack_state* stack);
 int               stack_top(void* dst, struct stack_state* stack);
 int               stack_top_e(void* dst, struct stack_state* stack);
 struct stack_elem stack_top_p(struct stack_state* stack);
+void*             stack_top_r(int size, struct stack_state* stack);
 
 int stack_empty(struct stack_state* stack);
 int stack_empty_b(struct stack_state* stack);

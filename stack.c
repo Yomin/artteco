@@ -114,19 +114,29 @@ void* stack_push(void* elem, int size, struct stack_state* stack)
     return push(elem, size, stack);
 }
 
-void* stack_push_p(void* elemptr, int size, struct stack_state* stack)
+void* stack_push_p(void* elemptr, struct stack_state* stack)
 {
-    return push(&elemptr, size, stack);
+    return push(&elemptr, sizeof(void*), stack);
+}
+
+void* stack_push_v(long value, int size, struct stack_state* stack)
+{
+    return push((&value)+sizeof(long)-size, size, stack);
+}
+
+void* stack_push_vi(int value, struct stack_state* stack)
+{
+    return push(&value, sizeof(int), stack);
+}
+
+void* stack_push_vc(char value, struct stack_state* stack)
+{
+    return push(&value, sizeof(char), stack);
 }
 
 void* stack_push_s(void* elem, struct stack_state* stack)
 {
     return push(elem, stack->size, stack);
-}
-
-void* stack_push_sp(void* elemptr, struct stack_state* stack)
-{
-    return push(&elemptr, stack->size, stack);
 }
 
 #else
@@ -137,22 +147,34 @@ void* stack_push_dbg(void* elem, int size, struct stack_state* stack, const char
     return push(elem, size, stack);
 }
 
-void* stack_push_p_dbg(void* elemptr, int size, struct stack_state* stack, const char* dbg_elemptr, const char* dbg_size, const char* dbg_func)
+void* stack_push_p_dbg(void* elemptr, struct stack_state* stack, const char* dbg_elemptr, const char* dbg_func)
 {
-    debug_log_f(dbg_func, stack->file, "%s %p %i %s", get_type(dbg_size), elemptr, size, dbg_elemptr);
-    return push(&elemptr, size, stack);
+    debug_log_f(dbg_func, stack->file, "void* %p %i %s", elemptr, sizeof(void*), dbg_elemptr);
+    return push(&elemptr, sizeof(void*), stack);
+}
+
+void* stack_push_v_dbg(long value, int size, struct stack_state* stack, const char* dbg_value, const char* dbg_size, const char* dbg_func)
+{
+    debug_log_f(dbg_func, stack->file, "%s %i %i %s", get_type(dbg_size), value, size, dbg_value);
+    return push((&value)+sizeof(long)-size, size, stack);
+}
+
+void* stack_push_vi_dbg(int value, struct stack_state* stack, const char* dbg_value, const char* dbg_func)
+{
+    debug_log_f(dbg_func, stack->file, "int %i %i %s", value, sizeof(int), dbg_value);
+    return push(&value, sizeof(int), stack);
+}
+
+void* stack_push_vc_dbg(char value, struct stack_state* stack, const char* dbg_value, const char* dbg_func)
+{
+    debug_log_f(dbg_func, stack->file, "int %i %i %s", value, sizeof(char), dbg_value);
+    return push(&value, sizeof(char), stack);
 }
 
 void* stack_push_s_dbg(void* elem, struct stack_state* stack, const char* dbg_elem, const char* dbg_func)
 {
     debug_log_f(dbg_func, stack->file, "%s %p %i %s", stack->type, elem, stack->size, dbg_elem);
     return push(elem, stack->size, stack);
-}
-
-void* stack_push_sp_dbg(void* elemptr, struct stack_state* stack, const char* dbg_elemptr, const char* dbg_func)
-{
-    debug_log_f(dbg_func, stack->file, "%s %p %i %s", stack->type, elemptr, stack->size, dbg_elemptr);
-    return push(&elemptr, stack->size, stack);
 }
 
 #endif
@@ -205,7 +227,7 @@ struct stack_elem stack_top_p(struct stack_state* stack)
     unsigned char size;
     if(stack->ptr == stack->stack)
         THROW(EXCEPTION_STACK_EMPTY);
-    if(stack->mode == STACK_MODE_EXT)
+    if(stack->mode & STACK_MODE_EXT)
     {
         memcpy(&size, stack->ptr-sizeof(unsigned char), sizeof(unsigned char));
         elem.size = (int)size;
@@ -230,6 +252,23 @@ int stack_top_e(void* dst, struct stack_state* stack)
 {
     if(stack_empty(stack)) return -1;
     else return stack_top(dst, stack);
+}
+
+void* stack_top_r(int size, struct stack_state* stack)
+{
+    if(stack->ptr == stack->stack)
+        THROW(EXCEPTION_STACK_EMPTY);
+    if(!(stack->mode & STACK_MODE_EXT))
+        THROW(EXCEPTION_WRONG_CONFIG);
+    
+    unsigned char nsize = (unsigned char) size;
+    unsigned char osize;
+    memcpy(&osize, stack->ptr-sizeof(unsigned char), sizeof(unsigned char));
+    stack->ptr = stack->ptr-osize+nsize;
+    memcpy(stack->ptr-sizeof(unsigned char), &nsize, sizeof(unsigned char));
+    if(stack->mode & STACK_MODE_QUEUE)
+        memcpy(stack->ptr-nsize-2*sizeof(unsigned char), &nsize, sizeof(unsigned char));
+    return stack->ptr-nsize-sizeof(unsigned char);
 }
 
 int stack_empty(struct stack_state* stack)

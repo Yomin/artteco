@@ -21,8 +21,8 @@
 
 #define MOVE_PROMPT_FORWARD()   getyx(stdscr, tmp_y, tmp_x); move(tmp_y, tmp_x+1)
 #define MOVE_PROMPT_BACKWARD()  getyx(stdscr, tmp_y, tmp_x); move(tmp_y, tmp_x-1)
-#define MOVE_TEXT_FORWARD()     getyx(win, tmp_y, tmp_x); wmove(win, tmp_y, tmp_x+1)
-#define MOVE_TEXT_BACKWARD()    getyx(win, tmp_y, tmp_x); wmove(win, tmp_y, tmp_x-1)
+#define MOVE_TEXT_FORWARD(pos)  getyx(win, tmp_y, tmp_x); wmove(win, tmp_y, tmp_x+pos)
+#define MOVE_TEXT_BACKWARD(pos) getyx(win, tmp_y, tmp_x); wmove(win, tmp_y, tmp_x-pos)
 
 #define STORE_POS(win)      getyx(win, tmp_y, tmp_x);
 #define RESTORE_POS(win)    wmove(win, tmp_y, tmp_x);
@@ -185,6 +185,20 @@ void screen_get_cursor(int* y, int* x)
     getyx(win, *y, *x);
 }
 
+void screen_set_pos(int pos)
+{
+    int y = pos/columns;
+    int x = pos%columns;
+    screen_set_cursor(y, x);
+}
+
+int screen_get_pos()
+{
+    int y, x;
+    screen_get_cursor(&y, &x);
+    return y*columns+x;
+}
+
 void screen_move_cursor(int dir)
 {
     undraw_cursor();
@@ -217,15 +231,26 @@ void screen_input_prompt_r(char c, int type)
     refresh();
 }
 
-void screen_input_text(char c)
+void screen_input_text_c(char c)
 {
     winsch(win, c);
-    MOVE_TEXT_FORWARD();
+    MOVE_TEXT_FORWARD(1);
 }
 
-void screen_input_text_r(char c)
+void screen_input_text_cr(char c)
 {
-    screen_input_text(c);
+    screen_input_text_c(c);
+    wrefresh(win);
+}
+
+void screen_input_text_s(const char* str)
+{
+    while(*str) screen_input_text_c(*str++);
+}
+
+void screen_input_text_sr(const char* str)
+{
+    screen_input_text_s(str);
     wrefresh(win);
 }
 
@@ -243,7 +268,7 @@ void screen_delete_prompt_r()
 
 char screen_delete_text()
 {
-    MOVE_TEXT_BACKWARD();
+    MOVE_TEXT_BACKWARD(1);
     char c = winch(win) & A_CHARTEXT;
     wdelch(win);
     return c;
@@ -253,6 +278,14 @@ char screen_delete_text_r()
 {
     char c = screen_delete_text();
     wrefresh(win);
+    return c;
+}
+
+char screen_get_text(int pos)
+{
+    MOVE_TEXT_BACKWARD(pos);
+    char c = winch(win) & A_CHARTEXT;
+    MOVE_TEXT_FORWARD(pos);
     return c;
 }
 

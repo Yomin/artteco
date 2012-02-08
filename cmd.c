@@ -103,13 +103,13 @@ struct cmd_ret std_move_forward(int given, int param)
 {
     switch(buffer_move_cursor(param, buffer_mgr_current()))
     {
-        case BUFFER_ERROR_CURSOR_BEGIN:
+        case BUFFER_ERROR_BEGIN:
             screen_set_msg("buffer begin");
-            return ret(CMD_RET_FAILURE, 0);
+            return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
             break;
-        case BUFFER_ERROR_CURSOR_END:
+        case BUFFER_ERROR_END:
             screen_set_msg("buffer end");
-            return ret(CMD_RET_FAILURE, 0);
+            return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
             break;
     }
     return ret(CMD_RET_SUCCESS, 0);
