@@ -218,13 +218,25 @@ void buffer_move_cursor_rubout()
 {
     struct buffer_state* buffer;
     rubout_load(&buffer);
-    stack_pop_s(&buffer->stack); // op
-    stack_pop_s(&buffer->stack); // point
+    
     int amount;
     rubout_load(&amount);
     if(amount < 0) screen_move_cursor(SCREEN_CURSOR_FORWARD);
     if(amount > 0) screen_move_cursor(SCREEN_CURSOR_BACKWARD);
     screen_refresh();
+    
+    struct point p_first, p_current;
+    screen_get_cursor(&p_current.y, &p_current.x);
+    
+    stack_pop_s(&buffer->stack);         // op
+    stack_top(&p_first, &buffer->stack); // pos
+    
+    if(p_first.y == p_current.y && p_first.x == p_current.x)
+    {
+        stack_pop_s(&buffer->stack);
+    }
+    else
+        stack_push_vc(OP_MOV, &buffer->stack);
 }
 
 int buffer_move_cursor(int amount, struct buffer_state* buffer)
@@ -242,12 +254,19 @@ int buffer_move_cursor(int amount, struct buffer_state* buffer)
     if(size >= 0)
     {
         if(op == OP_MOV)
-            stack_pop_s(&buffer->stack);
+            stack_push_vc(OP_MOV, &buffer->stack);
         else
+        {
             stack_push_vc(op, &buffer->stack);
+            stack_push_s(&p, &buffer->stack);
+            stack_push_vc(OP_MOV, &buffer->stack);
+        }
     }
-    stack_push_s(&p, &buffer->stack);
-    stack_push_vc(OP_MOV, &buffer->stack);
+    else
+    {
+        stack_push_s(&p, &buffer->stack);
+        stack_push_vc(OP_MOV, &buffer->stack);
+    }
     
     if(amount > 0) screen_move_cursor(SCREEN_CURSOR_FORWARD);
     if(amount < 0) screen_move_cursor(SCREEN_CURSOR_BACKWARD);
