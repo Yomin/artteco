@@ -115,6 +115,25 @@ struct cmd_ret std_move_forward(int given, int param)
     return ret(CMD_RET_SUCCESS, 0);
 }
 
+// MOVE BACKWARD
+// main:    move cursor given amount backward
+
+struct cmd_ret std_move_backward(int given, int param)
+{
+    switch(buffer_move_cursor(-param, buffer_mgr_current()))
+    {
+        case BUFFER_ERROR_BEGIN:
+            screen_set_msg("buffer begin");
+            return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
+            break;
+        case BUFFER_ERROR_END:
+            screen_set_msg("buffer end");
+            return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
+            break;
+    }
+    return ret(CMD_RET_SUCCESS, 0);
+}
+
 // INSERT
 // main:    if param given insert ascii char of param at dot, else register ecf
 // ecf:     insert new character at dot
@@ -258,6 +277,7 @@ void cmds_register()
     cmd_table[TAB_STD]['c'] = std_move_forward;
     cmd_table[TAB_STD]['e'] = std_extra;
     cmd_table[TAB_STD]['i'] = std_insert;
+    cmd_table[TAB_STD]['r'] = std_move_backward;
     cmd_table[TAB_STD]['-'] = std_sub;
     cmd_table[TAB_STD][','] = std_push;
     
