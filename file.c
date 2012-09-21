@@ -41,24 +41,38 @@
 
 void rem_lines(void* elem)
 {
-    struct list_state* lines = (struct list_state*) elem;
+    struct list_state* lines = elem;
     list_clear(lines);
 }
 
 // EXTERNAL
 
+/** \brief Initialize file structure.
+ * 
+ * Initialize file structure by initializing the chunk list, adding one chunk,
+ * initializing the chunks line list and adding one line.
+ * 
+ * \param [out] file: file structure to be initialized
+ */
 void file_init(struct file_state* file)
 {
     list_init(sizeof(struct file_chunk), &file->chunks);
-    struct file_chunk* first_chunk = (struct file_chunk*) list_add_sc(&file->chunks);
+    struct file_chunk* first_chunk = list_add_sc(&file->chunks);
     list_init(sizeof(struct file_line), &first_chunk->lines);
-    struct file_line* first_line = (struct file_line*) list_add_sc(&first_chunk->lines);
+    struct file_line* first_line = list_add_sc(&first_chunk->lines);
     first_line->size = 0;
     first_chunk->start = 0;
     first_chunk->end = -1;
     file->file = 0;
 }
 
+/** \brief Close file.
+ * 
+ * Close file by freeing all chunks and the respective lines, then closing
+ * the file.
+ * 
+ * \param [in] file: file structure of file to be closed
+ */
 void file_close(struct file_state* file)
 {
     list_clear_f(rem_lines, &file->chunks);
@@ -66,6 +80,18 @@ void file_close(struct file_state* file)
         fclose(file->file);
 }
 
+/** \brief Open a file.
+ * 
+ * Open a file by filling a chunk with #FILE_LINE_COUNT_SOFT number
+ * of #FILE_LINE_SIZE sized lines read from the file. The rest of the file
+ * is loaded on demand.
+ * 
+ * \param [in]     filename: file name
+ * \param [in,out] file:     file structure containing chunklist
+ * \retval #FILE_ERROR_NOT_FOUND: file was not found
+ * \retval #FILE_ERROR_NAME_SIZE: file name exceeded allowed size
+ * \retval 0:                     file successful opened
+ */
 int file_load(const char* filename, struct file_state* file)
 {
     file->file = fopen(filename, "r+");
@@ -76,8 +102,8 @@ int file_load(const char* filename, struct file_state* file)
     
     strcpy(file->name, filename);
     int i = 0;
-    struct file_chunk* chunk = (struct file_chunk*) list_get(0, &file->chunks);
-    struct file_line* line = (struct file_line*) list_get(0, &chunk->lines);
+    struct file_chunk* chunk = list_get(0, &file->chunks);
+    struct file_line* line = list_get(0, &chunk->lines);
 
     do
     {
@@ -86,7 +112,7 @@ int file_load(const char* filename, struct file_state* file)
             break;
         if(ferror(file->file))
             THROW(EXCEPTION_IO);
-        line = (struct file_line*) list_add_s(&chunk->lines);
+        line = list_add_s(&chunk->lines);
         ++i;
     }
     while(i < FILE_LINE_COUNT_SOFT);

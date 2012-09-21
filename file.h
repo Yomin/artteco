@@ -31,6 +31,23 @@
 
 #include <stdio.h>
 
+/**
+ * \def FILE_LINE_SIZE
+ * \brief Maximal size of lines
+ * \def FILE_LINE_COUNT_SOFT
+ * \brief Maximal count of lines when loading file.
+ * \def FILE_LINE_COUNT_HARD
+ * \brief Maximal count of lines per chunk.
+ * \def FILE_CHUNK_COUNT
+ * \brief Maximal count of chunks per file.
+ * \def FILE_NAME_SIZE
+ * \brief Maximal size of filenames.
+ * 
+ * \def FILE_ERROR_NOT_FOUND
+ * \brief Error: File was not found.
+ * \def FILE_ERROR_NAME_SIZE
+ * \brief Error: File size exceeded #FILE_NAME_SIZE.
+ */
 #define FILE_LINE_SIZE 128
 #define FILE_LINE_COUNT_SOFT 64     // up to 8KB
 #define FILE_LINE_COUNT_HARD 128    // up to 16KB
