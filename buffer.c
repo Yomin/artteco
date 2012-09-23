@@ -75,7 +75,7 @@ void buffer_init(const char* name, int number, struct buffer_state* buffer)
     buffer->number = number;
     
     list_init(sizeof(struct buffer_line), &buffer->lines);
-    struct buffer_line* line = (struct buffer_line*) list_add_sc(&buffer->lines);
+    struct buffer_line* line = list_add_sc(&buffer->lines);
     line->status |= BUFFER_STATUS_LAST;
 
     stack_init(STACK_MODE_EXT|STACK_MODE_QUEUE, sizeof(struct point), name, &buffer->stack);
@@ -100,7 +100,7 @@ int buffer_load(const char* file, struct buffer_state* buffer)
             return BUFFER_ERROR_FILE_NAME_SIZE;
     }
     
-    struct file_chunk* chunk = (struct file_chunk*)list_get(0, &buffer->file.chunks);
+    struct file_chunk* chunk = list_get(0, &buffer->file.chunks);
     
     struct load_state state;
     state.bufferline_counter = 0;
@@ -111,7 +111,7 @@ int buffer_load(const char* file, struct buffer_state* buffer)
     
     ((struct buffer_line*)list_get(0, &buffer->lines))->status = 0;
     list_fold(load_lines, &state, &chunk->lines);
-    struct buffer_line* last = (struct buffer_line*) list_last(&buffer->lines);
+    struct buffer_line* last = list_last(&buffer->lines);
     last->status |= BUFFER_STATUS_LAST;
     if(state.bufferline_counter < state.numlines-1)
         last->status &= ~BUFFER_STATUS_CONTINUED;
@@ -188,10 +188,10 @@ void buffer_display(struct buffer_state* buffer)
     screen_clear();
     
     int i, max = screen_get_buffer_lines();
-    struct file_chunk* chunk = (struct file_chunk*) list_current(&buffer->file.chunks);
-    struct file_line* f_line = (struct file_line*) list_get_c(buffer->linenumber, &chunk->lines);
+    struct file_chunk* chunk = list_current(&buffer->file.chunks);
+    struct file_line* f_line = list_get_c(buffer->linenumber, &chunk->lines);
     
-    struct buffer_line* b_line = (struct buffer_line*) list_get_c(0, &buffer->lines);
+    struct buffer_line* b_line = list_get_c(0, &buffer->lines);
     
     for(i=0;i<max;++i)
     {
@@ -204,10 +204,10 @@ void buffer_display(struct buffer_state* buffer)
             screen_set_line(i, ptr);
             offset = f_line->size - b_line->offset;
             size = b_line->size - offset;
-            if(!(f_line = (struct file_line*) list_next(&chunk->lines)))
+            if(!(f_line = list_next(&chunk->lines)))
             {
-                chunk = (struct file_chunk*) list_next_s(&buffer->file.chunks);
-                f_line = (struct file_line*) list_get(0, &chunk->lines);
+                chunk = list_next_s(&buffer->file.chunks);
+                f_line = list_get(0, &chunk->lines);
             }
             ptr = f_line->line;
         }
@@ -217,17 +217,18 @@ void buffer_display(struct buffer_state* buffer)
         screen_set_line_o(i, offset, ptr);
         ptr[size] = tmp;
         
-        if(b_line->status & BUFFER_STATUS_LAST) break;
+        if(b_line->status & BUFFER_STATUS_LAST)
+            break;
         
         if(b_line->status & BUFFER_STATUS_EXHAUSTED)
         {
-            if(!(f_line = (struct file_line*) list_next(&chunk->lines)))
+            if(!(f_line = list_next(&chunk->lines)))
             {
-                chunk = (struct file_chunk*) list_next_s(&buffer->file.chunks);
-                f_line = (struct file_line*) list_get(0, &chunk->lines);
+                chunk = list_next_s(&buffer->file.chunks);
+                f_line = list_get(0, &chunk->lines);
             }
         }
-        b_line = (struct buffer_line*) list_next(&buffer->lines);
+        b_line = list_next(&buffer->lines);
     }
     
     screen_set_cursor(0, 0);
@@ -241,8 +242,10 @@ void buffer_move_cursor_rubout()
     
     int amount;
     rubout_load(&amount);
-    if(amount < 0) screen_move_cursor(SCREEN_CURSOR_FORWARD);
-    if(amount > 0) screen_move_cursor(SCREEN_CURSOR_BACKWARD);
+    if(amount < 0)
+        screen_move_cursor(SCREEN_CURSOR_FORWARD);
+    if(amount > 0)
+        screen_move_cursor(SCREEN_CURSOR_BACKWARD);
     screen_refresh();
     
     struct point p_first, p_current;
@@ -288,8 +291,10 @@ int buffer_move_cursor(int amount, struct buffer_state* buffer)
         stack_push_vc(OP_MOV, &buffer->stack);
     }
     
-    if(amount > 0) screen_move_cursor(SCREEN_CURSOR_FORWARD);
-    if(amount < 0) screen_move_cursor(SCREEN_CURSOR_BACKWARD);
+    if(amount > 0)
+        screen_move_cursor(SCREEN_CURSOR_FORWARD);
+    if(amount < 0)
+        screen_move_cursor(SCREEN_CURSOR_BACKWARD);
     screen_refresh();
     rubout_save(&amount, sizeof(int));
     rubout_register(buffer_move_cursor_rubout, &buffer, sizeof(struct buffer_state*));
@@ -327,12 +332,12 @@ void buffer_register_rubouts()
 
 void load_lines(void* elem, void* akk)
 {
-    struct load_state* state = (struct load_state*) akk;
-    struct file_line* fileline = (struct file_line*) elem;
+    struct load_state* state = akk;
+    struct file_line* fileline = elem;
     if(!state->lines)
         return;   // already done
     
-    struct buffer_line* bufferline = (struct buffer_line*) list_last(state->lines);
+    struct buffer_line* bufferline = list_last(state->lines);
     int i = 0, offset = 0, size = bufferline->size;
     
     for(; i < fileline->size; ++i, ++size)
@@ -375,7 +380,7 @@ void load_lines(void* elem, void* akk)
             else
             {
                 ++state->bufferline_counter;
-                bufferline = (struct buffer_line*) list_add_s(state->lines);
+                bufferline = list_add_s(state->lines);
             }
             
             bufferline->status = 0;
