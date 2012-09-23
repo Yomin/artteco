@@ -1,5 +1,6 @@
 artteco
-else
 logs
 html
 latex
+debug
+*.o

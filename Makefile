@@ -1,21 +1,37 @@
-.PHONY: all, clean, debug, crash
+.PHONY: all, clean, debug
 
-CC = gcc
-CFLAGS = -Wall
+FLAGS = -Wall
 LIBS = -l ncurses
-SOURCES = *.c
+SOURCES = $(shell find . -maxdepth 1 -name "*.c")
+OBJECTS = $(SOURCES:%.c=%.o)
 
 NAME = artteco
 
-all:
-	$(CC) $(CFLAGS) $(LIBS) -o $(NAME) -D NDEBUG $(SOURCES)
+RED="\033[1;31m"
+NORMAL="\033[0m"
 
-debug:
-	$(CC) $(CFLAGS) $(LIBS) -o $(NAME) -g $(SOURCES)
+all: DEBUG  = no
+all: FLAGS := $(FLAGS) -D NDEBUG
+all: touch $(NAME)
 
-crash:
-	$(CC) $(CFLAGS) $(LIBS) -o $(NAME) -g -D FLUSH $(SOURCES)
+debug: DEBUG  = yes
+debug: FLAGS := $(FLAGS) -ggdb3 -D FLUSH
+debug: touch $(NAME)
+
+$(NAME): $(OBJECTS)
+	@echo -e linking $(RED)
+	@gcc $(FLAGS) $(LIBS) -o $(NAME) $(OBJECTS)
+	@echo -en $(NORMAL)
+
+%.o: %.c
+	@echo -e compile $< $(RED)
+	@gcc -c $(FLAGS) $(LIBS) -o $@ $<
+	@echo -en $(NORMAL)
 
 clean:
-	rm -rf $(NAME)
+	@rm -f $(NAME) debug
+	$(shell find . -name "*.o" -exec rm -f {} \;)
 
+touch:
+	$(shell [ -f debug -a "$(DEBUG)" = "no" ] && { touch *.c; rm debug; })
+	$(shell [ ! -f debug -a "$(DEBUG)" = "yes" ] && { touch *.c; touch debug; })
