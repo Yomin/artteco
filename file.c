@@ -52,7 +52,7 @@ void rem_lines(void* elem)
  * Initialize file structure by initializing the chunk list, adding one chunk,
  * initializing the chunks line list and adding one line.
  * 
- * \param [out] file: file structure to be initialized
+ * \param [out] file file structure to be initialized
  */
 void file_init(struct file_state* file)
 {
@@ -60,7 +60,10 @@ void file_init(struct file_state* file)
     struct file_chunk* first_chunk = list_add_sc(&file->chunks);
     list_init(sizeof(struct file_line), &first_chunk->lines);
     struct file_line* first_line = list_add_sc(&first_chunk->lines);
+    list_init(sizeof(struct file_pos), &first_line->pos);
     first_line->size = 0;
+    first_line->next = 0;
+    list_init(sizeof(struct file_pos), &first_line->pos);
     first_chunk->start = 0;
     first_chunk->end = -1;
     file->file = 0;
@@ -71,7 +74,7 @@ void file_init(struct file_state* file)
  * Close file by freeing all chunks and the respective lines, then closing
  * the file.
  * 
- * \param [in] file: file structure of file to be closed
+ * \param [in] file file structure of file to be closed
  */
 void file_close(struct file_state* file)
 {
@@ -86,11 +89,11 @@ void file_close(struct file_state* file)
  * of #FILE_LINE_SIZE sized lines read from the file. The rest of the file
  * is loaded on demand.
  * 
- * \param [in]     filename: file name
- * \param [in,out] file:     file structure containing chunklist
- * \retval #FILE_ERROR_NOT_FOUND: file was not found
- * \retval #FILE_ERROR_NAME_SIZE: file name exceeded allowed size
- * \retval 0:                     file successful opened
+ * \param [in]     filename      file name
+ * \param [in,out] file          file structure containing chunklist
+ * \retval #FILE_ERROR_NOT_FOUND file was not found
+ * \retval #FILE_ERROR_NAME_SIZE file name exceeded allowed size
+ * \retval 0                     file successful opened
  */
 int file_load(const char* filename, struct file_state* file)
 {
@@ -104,6 +107,7 @@ int file_load(const char* filename, struct file_state* file)
     int i = 0;
     struct file_chunk* chunk = list_get(0, &file->chunks);
     struct file_line* line = list_get(0, &chunk->lines);
+    struct file_line* next;
 
     do
     {
@@ -112,9 +116,61 @@ int file_load(const char* filename, struct file_state* file)
             break;
         if(ferror(file->file))
             THROW(EXCEPTION_IO);
-        line = list_add_s(&chunk->lines);
+        next = list_add_s(&chunk->lines);
+        line->next = next;
+        line = next;
+        line->next = 0;
+        list_init(sizeof(struct file_pos), &line->pos);
         ++i;
     }
     while(i < FILE_LINE_COUNT_SOFT);
     return 0;
+}
+
+/** \brief Add a #file_pos to a line.
+ * 
+ * Similar version of #file_line_add_pos.
+ * Instead of providing a #file_line a #file_state with line and chunk number
+ * is needed.
+ * 
+ * \param line  line number the #file_pos is added to
+ * \param chunk number of the chunk containing the #file_line
+ * \param file  #file_state containing the #file_chunk and #file_line
+ */
+struct file_pos* file_add_pos(int chunk, int line, int size, int offset, struct file_state* file)
+{
+    struct file_chunk* first = list_get(chunk, &file->chunks);
+    return file_line_add_pos(size, offset, list_get(line, &first->lines));
+}
+
+/** \brief Add a #file_pos to a line.
+ * 
+ * Similar version of #file_line_add_pos.
+ * Instead of providing a #file_line a #file_chunk with line number is needed.
+ * 
+ * \param line  line number the #file_pos is added to
+ * \param chunk #file_chunk containing the #file_line
+ */
+struct file_pos* file_chunk_add_pos(int line, int size, int offset, struct file_chunk* chunk)
+{
+    return file_line_add_pos(size, offset, list_get(line, &chunk->lines));
+}
+
+/** \brief Add a #file_pos to a line.
+ * 
+ * Add a #file_pos to the line pointed to by line, set size offset and self
+ * and return a pointer to the created #file_pos.
+ * 
+ * \param size   size of string the position points to
+ * \param offset offset of position in line
+ * \param line   #file_line the #file_pos is added to
+ * \return returns a pointer to the created #file_pos
+ */
+struct file_pos* file_line_add_pos(int size, int offset, struct file_line* line)
+{
+    struct file_pos* pos = list_add_s(&line->pos);
+    pos->offset = offset;
+    pos->size = size;
+    pos->line = line;
+    return pos;
 }

@@ -42,15 +42,12 @@
 
 struct buffer_line
 {
-    int status; // line properties
-    int line;   // fileline
-    int offset; // character offset in file line
-    int size;   // size of buffer line
+    struct file_pos* pos;
 };
 
 struct load_state
 {
-    int bufferline_counter, fileline_counter, numlines, numcolumns;
+    int bufferline_counter, numlines, numcolumns;
     struct list_state* lines;
 };
 
@@ -62,6 +59,7 @@ struct point
 // FORWARDS
 
 void load_lines(void* elem, void* akk);
+void show_lines(void* elem, void* akk);
 
 void buffer_write(const char* str, struct stack_state* stack);
 void buffer_delete(int count, char* buf, struct stack_state* stack);
@@ -74,12 +72,13 @@ void buffer_init(const char* name, int number, struct buffer_state* buffer)
     buffer->name[MIN(strlen(name), BUFFER_NAME_SIZE-1)] = 0;
     buffer->number = number;
     
+    file_init(&buffer->file);
+    
     list_init(sizeof(struct buffer_line), &buffer->lines);
     struct buffer_line* line = list_add_sc(&buffer->lines);
-    line->status |= BUFFER_STATUS_LAST;
+    line->pos = file_add_pos(0, 0, 0, 0, &buffer->file);
 
     stack_init(STACK_MODE_EXT|STACK_MODE_QUEUE, sizeof(struct point), name, &buffer->stack);
-    file_init(&buffer->file);
     buffer->linenumber = 0;
 }
 
@@ -104,17 +103,17 @@ int buffer_load(const char* file, struct buffer_state* buffer)
     
     struct load_state state;
     state.bufferline_counter = 0;
-    state.fileline_counter = 0;
     state.numlines = screen_get_buffer_lines();
     state.numcolumns = screen_get_buffer_columns();
     state.lines = &buffer->lines;
     
-    ((struct buffer_line*)list_get(0, &buffer->lines))->status = 0;
     list_fold(load_lines, &state, &chunk->lines);
     struct buffer_line* last = list_last(&buffer->lines);
-    last->status |= BUFFER_STATUS_LAST;
-    if(state.bufferline_counter < state.numlines-1)
-        last->status &= ~BUFFER_STATUS_CONTINUED;
+    if(!last->pos)
+    {
+        list_delete(state.bufferline_counter, &buffer->lines);
+        last = list_last(&buffer->lines);
+    }
     
     return 0;
 }
@@ -187,49 +186,8 @@ void buffer_display(struct buffer_state* buffer)
 {
     screen_clear();
     
-    int i, max = screen_get_buffer_lines();
-    struct file_chunk* chunk = list_current(&buffer->file.chunks);
-    struct file_line* f_line = list_get_c(buffer->linenumber, &chunk->lines);
-    
-    struct buffer_line* b_line = list_get_c(0, &buffer->lines);
-    
-    for(i=0;i<max;++i)
-    {
-        int offset = 0;
-        int size = b_line->size;
-        char* ptr = &f_line->line[b_line->offset];
-        
-        if(b_line->status & BUFFER_STATUS_CONTINUED)
-        {
-            screen_set_line(i, ptr);
-            offset = f_line->size - b_line->offset;
-            size = b_line->size - offset;
-            if(!(f_line = list_next(&chunk->lines)))
-            {
-                chunk = list_next_s(&buffer->file.chunks);
-                f_line = list_get(0, &chunk->lines);
-            }
-            ptr = f_line->line;
-        }
-        
-        char tmp = ptr[size];
-        ptr[size] = 0;
-        screen_set_line_o(i, offset, ptr);
-        ptr[size] = tmp;
-        
-        if(b_line->status & BUFFER_STATUS_LAST)
-            break;
-        
-        if(b_line->status & BUFFER_STATUS_EXHAUSTED)
-        {
-            if(!(f_line = list_next(&chunk->lines)))
-            {
-                chunk = list_next_s(&buffer->file.chunks);
-                f_line = list_get(0, &chunk->lines);
-            }
-        }
-        b_line = list_next(&buffer->lines);
-    }
+    int counter = 0;
+    list_fold(show_lines, &counter, &buffer->lines);
     
     screen_set_cursor(0, 0);
     screen_refresh();
@@ -338,31 +296,24 @@ void load_lines(void* elem, void* akk)
         return;   // already done
     
     struct buffer_line* bufferline = list_last(state->lines);
-    int i = 0, offset = 0, size = bufferline->size;
+    int i = 0, offset = 0, size;
+    
+    if(bufferline->pos) // if existent continuing bufferline
+        size = bufferline->pos->size;
+    else                // else start value
+        size = 0;
     
     for(; i < fileline->size; ++i, ++size)
     {
         if(fileline->line[i] == '\n' || size == state->numcolumns)
         {
-            bufferline->size = size;
-            
-            if(bufferline->status & BUFFER_STATUS_CONTINUED)
-            {
-                if(i == 0)
-                {
-                    bufferline->status &= ~BUFFER_STATUS_CONTINUED;
-                    bufferline->status |= BUFFER_STATUS_EXHAUSTED;
-                }
-            }
-            else
-            {
-                bufferline->line = state->fileline_counter;
-                bufferline->offset = offset;
-            }
+            if(bufferline->pos) // if existent continuing bufferline
+                bufferline->pos->size = size;
+            else                // else create one
+                bufferline->pos = file_line_add_pos(size, offset, fileline);
             
             if(fileline->line[i] == '\n')
             {
-                bufferline->status |= BUFFER_STATUS_NEWLINE;
                 offset = i+1;   // forget newline
                 size = -1;      // "
             }
@@ -382,21 +333,47 @@ void load_lines(void* elem, void* akk)
                 ++state->bufferline_counter;
                 bufferline = list_add_s(state->lines);
             }
-            
-            bufferline->status = 0;
         }
     }
     
-    if(offset == i)
-        bufferline->status |= BUFFER_STATUS_EXHAUSTED;
-    else if(offset < i)
+    if(offset < i) // continuing bufferline, create pos in advance
+        bufferline->pos = file_line_add_pos(size, offset, fileline);
+}
+
+void show_lines(void* elem, void* akk)
+{
+    struct buffer_line* b_line = elem;
+    struct file_line*   f_line = b_line->pos->line;
+    int* counter = akk;
+    
+    int offset = 0;
+    int size = b_line->pos->size;
+    char* ptr = &f_line->line[b_line->pos->offset];
+    
+    if(f_line->size-b_line->pos->offset < size)
     {
-        bufferline->status |= BUFFER_STATUS_CONTINUED;
-        bufferline->size = size;
-        bufferline->offset = offset;
+        screen_set_line(*counter, ptr);
+        offset += f_line->size - b_line->pos->offset;
+        size -= offset;
+        f_line = f_line->next;
+        ptr = f_line->line;
+        
+        while(size > f_line->size)
+        {
+            screen_set_line_o(*counter, offset, ptr);
+            offset += f_line->size;
+            size -= f_line->size;
+            f_line = f_line->next;
+            ptr = f_line->line;
+        }
     }
     
-    bufferline->line = state->fileline_counter++;
+    char tmp = ptr[size];
+    ptr[size] = 0;
+    screen_set_line_o(*counter, offset, ptr);
+    ptr[size] = tmp;
+    
+    ++(*counter);
 }
 
 void buffer_write_new(const char* str, struct stack_state* stack)

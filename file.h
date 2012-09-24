@@ -58,10 +58,18 @@
 #define FILE_ERROR_NOT_FOUND -1
 #define FILE_ERROR_NAME_SIZE -2
 
+struct file_pos
+{
+    int offset, size;
+    struct file_line* line;
+};
+
 struct file_line
 {
     char line[FILE_LINE_SIZE+1];
     int size;
+    struct list_state pos;
+    struct file_line* next;
 };
 
 struct file_chunk
@@ -80,5 +88,9 @@ struct file_state
 void file_init(struct file_state* file);
 void file_close(struct file_state* file);
 int  file_load(const char* filename, struct file_state* file);
+
+struct file_pos* file_add_pos(int chunk, int line, int size, int offset, struct file_state* file);
+struct file_pos* file_chunk_add_pos(int line, int size, int offset, struct file_chunk* chunk);
+struct file_pos* file_line_add_pos(int size, int offset, struct file_line* line);
 
 #endif

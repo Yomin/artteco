@@ -32,11 +32,6 @@
 
 #define BUFFER_NAME_SIZE 80
 
-#define BUFFER_STATUS_NEWLINE   1   // contains newline
-#define BUFFER_STATUS_CONTINUED 2   // continues to next file line
-#define BUFFER_STATUS_EXHAUSTED 4   // fills rest of file line
-#define BUFFER_STATUS_LAST      8   // last line to display
-
 #define BUFFER_ERROR_FILE_NOT_FOUND -1
 #define BUFFER_ERROR_FILE_NAME_SIZE -2
 #define BUFFER_ERROR_BEGIN          -3
