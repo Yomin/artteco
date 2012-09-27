@@ -62,6 +62,7 @@ void file_init(struct file_state* file)
     struct file_line* first_line = list_add_sc(&first_chunk->lines);
     list_init(sizeof(struct file_pos), &first_line->pos);
     first_line->size = 0;
+    first_line->prev = 0;
     first_line->next = 0;
     list_init(sizeof(struct file_pos), &first_line->pos);
     first_chunk->start = 0;
@@ -118,6 +119,7 @@ int file_load(const char* filename, struct file_state* file)
             THROW(EXCEPTION_IO);
         next = list_add_s(&chunk->lines);
         line->next = next;
+        next->prev = line;
         line = next;
         line->next = 0;
         list_init(sizeof(struct file_pos), &line->pos);
@@ -172,5 +174,63 @@ struct file_pos* file_line_add_pos(int size, int offset, struct file_line* line)
     pos->offset = offset;
     pos->size = size;
     pos->line = line;
+    pos->newline = 0;
     return pos;
+}
+
+/** \brief Check if enough characters available.
+ * 
+ * Check the chained lines on availability of a certain amount of characters.
+ * This can be used to determine if enough characters for cursor movement
+ * are available.
+ * 
+ * \param amount amount of characters to have be available
+ * \param offset offset in line
+ * \param line   #file_line the check begins with
+ * \retval 0     sufficient characters available
+ * \retval -1    unsufficient characters available
+ */
+int file_check_sufficient(int amount, int offset, struct file_line* line)
+{
+    if(offset+amount > line->size)
+    {
+        offset -= line->size;
+        line = line->next;
+        if(!line)
+            return -1;
+    }
+    else if(offset+amount < 0)
+    {
+        line = line->prev;
+        if(!line)
+            return -1;
+        offset = line->size - offset;
+    }
+    
+    if(amount < 0)
+    {
+        amount += offset;
+        line = line->prev;
+        while(line && amount < 0)
+        {
+            amount += line->size;
+            line = line->prev;
+        }
+        if(amount >= 0)
+            return 0;
+        return -1;
+    }
+    else
+    {
+        amount -= line->size-offset;
+        line = line->next;
+        while(line && amount > 0)
+        {
+            amount -= line->size;
+            line = line->next;
+        }
+        if(amount <= 0)
+            return 0;
+        return -1;
+    }
 }

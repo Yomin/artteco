@@ -33,7 +33,7 @@
 
 /**
  * \def FILE_LINE_SIZE
- * \brief Maximal size of lines
+ * \brief Maximal size of lines.
  * \def FILE_LINE_COUNT_SOFT
  * \brief Maximal count of lines when loading file.
  * \def FILE_LINE_COUNT_HARD
@@ -61,6 +61,7 @@
 struct file_pos
 {
     int offset, size;
+    char newline;
     struct file_line* line;
 };
 
@@ -69,7 +70,7 @@ struct file_line
     char line[FILE_LINE_SIZE+1];
     int size;
     struct list_state pos;
-    struct file_line* next;
+    struct file_line* prev, *next;
 };
 
 struct file_chunk
@@ -92,5 +93,7 @@ int  file_load(const char* filename, struct file_state* file);
 struct file_pos* file_add_pos(int chunk, int line, int size, int offset, struct file_state* file);
 struct file_pos* file_chunk_add_pos(int line, int size, int offset, struct file_chunk* chunk);
 struct file_pos* file_line_add_pos(int size, int offset, struct file_line* line);
+
+int file_check_sufficient(int amount, int offset, struct file_line* line);
 
 #endif

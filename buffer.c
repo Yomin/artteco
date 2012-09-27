@@ -63,6 +63,7 @@ void show_lines(void* elem, void* akk);
 
 void buffer_write(const char* str, struct stack_state* stack);
 void buffer_delete(int count, char* buf, struct stack_state* stack);
+void buffer_move(int amount, int y, int x, struct buffer_state* buffer);
 
 // EXTERNAL
 
@@ -108,12 +109,6 @@ int buffer_load(const char* file, struct buffer_state* buffer)
     state.lines = &buffer->lines;
     
     list_fold(load_lines, &state, &chunk->lines);
-    struct buffer_line* last = list_last(&buffer->lines);
-    if(!last->pos)
-    {
-        list_delete(state.bufferline_counter, &buffer->lines);
-        last = list_last(&buffer->lines);
-    }
     
     return 0;
 }
@@ -178,8 +173,11 @@ void buffer_scroll_rubout()
 int buffer_scroll(int lines, struct buffer_state* buffer)
 {
     // todo
-    rubout_register(buffer_scroll_rubout, &lines, sizeof(int));
-    return 0;
+    // ~ rubout_register(buffer_scroll_rubout, &lines, sizeof(int));
+    if(lines < 0)
+        return BUFFER_ERROR_BEGIN;
+    else
+        return BUFFER_ERROR_END;
 }
 
 void buffer_display(struct buffer_state* buffer)
@@ -189,6 +187,7 @@ void buffer_display(struct buffer_state* buffer)
     int counter = 0;
     list_fold(show_lines, &counter, &buffer->lines);
     
+    list_get_c(0, &buffer->lines);
     screen_set_cursor(0, 0);
     screen_refresh();
 }
@@ -200,10 +199,10 @@ void buffer_move_cursor_rubout()
     
     int amount;
     rubout_load(&amount);
-    if(amount < 0)
-        screen_move_cursor(SCREEN_CURSOR_FORWARD);
-    if(amount > 0)
-        screen_move_cursor(SCREEN_CURSOR_BACKWARD);
+    
+    int y, x;
+    screen_get_cursor(&y, &x);
+    buffer_move(-amount, y, x, buffer);
     screen_refresh();
     
     struct point p_first, p_current;
@@ -225,10 +224,17 @@ int buffer_move_cursor(int amount, struct buffer_state* buffer)
     struct point p;
     screen_get_cursor(&p.y, &p.x);
     
-    if(amount < 0 && !p.y && !p.x) // todo for scroll
-        return BUFFER_ERROR_BEGIN;
+    struct buffer_line* line = list_current(&buffer->lines);
     
-    // todo forward move
+    if(file_check_sufficient(amount, line->pos->offset + p.x, line->pos->line))
+    {
+        if(amount < 0)
+            return BUFFER_ERROR_BEGIN;
+        else
+            return BUFFER_ERROR_END;
+    }
+    
+    buffer_move(amount, p.y, p.x, buffer);
     
     char op;
     int size = stack_pop_e(&op, &buffer->stack);
@@ -249,10 +255,6 @@ int buffer_move_cursor(int amount, struct buffer_state* buffer)
         stack_push_vc(OP_MOV, &buffer->stack);
     }
     
-    if(amount > 0)
-        screen_move_cursor(SCREEN_CURSOR_FORWARD);
-    if(amount < 0)
-        screen_move_cursor(SCREEN_CURSOR_BACKWARD);
     screen_refresh();
     rubout_save(&amount, sizeof(int));
     rubout_register(buffer_move_cursor_rubout, &buffer, sizeof(struct buffer_state*));
@@ -314,6 +316,7 @@ void load_lines(void* elem, void* akk)
             
             if(fileline->line[i] == '\n')
             {
+                bufferline->pos->newline = 1;
                 offset = i+1;   // forget newline
                 size = -1;      // "
             }
@@ -336,7 +339,9 @@ void load_lines(void* elem, void* akk)
         }
     }
     
-    if(offset < i) // continuing bufferline, create pos in advance
+    // continuing bufferline, create pos in advance
+    // for offset == i last char was newline -> new empty bufferline
+    if(offset <= i)
         bufferline->pos = file_line_add_pos(size, offset, fileline);
 }
 
@@ -536,4 +541,59 @@ void buffer_delete(int count, char* buf, struct stack_state* stack)
     else
         buffer_delete_new(count, buf, stack);
     screen_refresh();
+}
+
+void buffer_move(int amount, int y, int x, struct buffer_state* buffer)
+{
+    struct buffer_line* line = list_current(&buffer->lines);
+    
+    if(amount < 0)
+    {
+        while(1)
+            if(-amount <= x)
+            {
+                screen_set_cursor(y, x+amount);
+                break;
+            }
+            else
+            {
+                amount += x;
+                line = list_prev(&buffer->lines);
+                if(!line)
+                {
+                    buffer_scroll(-1, buffer);
+                    line = list_prev(&buffer->lines);
+                }
+                else
+                    --y;
+                x = line->pos->size;
+                if(line->pos->newline)
+                    ++amount;
+            }
+    }
+    else if(amount > 0)
+    {
+        while(1)
+            if(amount <= line->pos->size-x)
+            {
+                screen_set_cursor(y, x+amount);
+                break;
+            }
+            else
+            {
+                char nl = line->pos->newline;
+                amount -= line->pos->size-x;
+                line = list_next(&buffer->lines);
+                if(!line)
+                {
+                    buffer_scroll(1, buffer);
+                    line = list_next(&buffer->lines);
+                }
+                else
+                    ++y;
+                x = 0;
+                if(nl)
+                    --amount;
+            }
+    }
 }

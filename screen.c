@@ -196,6 +196,7 @@ void screen_set_line(int num, const char* line)
 
 void screen_set_cursor(int y, int x)
 {
+    undraw_cursor();
     wmove(win, y, x);
     draw_cursor();
 }

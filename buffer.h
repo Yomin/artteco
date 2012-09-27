@@ -30,6 +30,20 @@
 #include "stack.h"
 #include "file.h"
 
+/**
+ * \def BUFFER_NAME_SIZE
+ * \brief Maximal number of chars to name a buffer.
+ *
+ * \def BUFFER_ERROR_FILE_NOT_FOUND
+ * \brief Error: File was not found.
+ * \def BUFFER_ERROR_FILE_NAME_SIZE
+ * \brief Error: File size exceeded #FILE_NAME_SIZE.
+ * \def BUFFER_ERROR_BEGIN
+ * \brief Error: Cursor can not move ahead buffer begin.
+ * \def BUFFER_ERROR_END
+ * \brief Error: Cursor can not move after buffer end.
+ */
+
 #define BUFFER_NAME_SIZE 80
 
 #define BUFFER_ERROR_FILE_NOT_FOUND -1
