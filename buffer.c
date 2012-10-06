@@ -43,6 +43,7 @@
 struct buffer_line
 {
     struct file_pos* pos;
+    struct buffer_line *next, *prev;
 };
 
 struct load_state
@@ -61,9 +62,11 @@ struct point
 void load_lines(void* elem, void* akk);
 void show_lines(void* elem, void* akk);
 
-void buffer_write(const char* str, struct stack_state* stack);
+void buffer_write(const char* str, struct buffer_state* buffer);
 void buffer_delete(int count, char* buf, struct stack_state* stack);
 void buffer_move(int amount, int y, int x, struct buffer_state* buffer);
+
+int buffer_check_sufficient(int amount, int xpos, struct buffer_line* line);
 
 // EXTERNAL
 
@@ -78,6 +81,7 @@ void buffer_init(const char* name, int number, struct buffer_state* buffer)
     list_init(sizeof(struct buffer_line), &buffer->lines);
     struct buffer_line* line = list_add_sc(&buffer->lines);
     line->pos = file_add_pos(0, 0, 0, 0, &buffer->file);
+    line->next = line->prev = 0;
 
     stack_init(STACK_MODE_EXT|STACK_MODE_QUEUE, sizeof(struct point), name, &buffer->stack);
     buffer->linenumber = 0;
@@ -124,7 +128,7 @@ void buffer_write_str_rubout()
 
 void buffer_write_str(const char* str, struct buffer_state* buffer)
 {
-    buffer_write(str, &buffer->stack);
+    buffer_write(str, buffer);
     int len = strlen(str);
     rubout_save(&len, sizeof(int));
     rubout_register(buffer_write_str_rubout, &buffer, sizeof(struct buffer_state*));
@@ -226,7 +230,7 @@ int buffer_move_cursor(int amount, struct buffer_state* buffer)
     
     struct buffer_line* line = list_current(&buffer->lines);
     
-    if(file_check_sufficient(amount, line->pos->offset + p.x, line->pos->line))
+    if(buffer_check_sufficient(amount, p.x, line))
     {
         if(amount < 0)
             return BUFFER_ERROR_BEGIN;
@@ -334,7 +338,11 @@ void load_lines(void* elem, void* akk)
             else
             {
                 ++state->bufferline_counter;
-                bufferline = list_add_s(state->lines);
+                struct buffer_line* tmp = list_add_s(state->lines);
+                bufferline->next = tmp;
+                tmp->prev = bufferline;
+                tmp->next = 0;
+                bufferline = tmp;
             }
         }
     }
@@ -427,31 +435,59 @@ void buffer_write_rewind(const char* str, struct stack_state* stack)
     }
 }
 
-void buffer_write(const char* str, struct stack_state* stack)
+void buffer_write(const char* str, struct buffer_state* buffer)
 {
     if(!*str)
         return;
     char op;
-    int size = stack_pop_e(&op, stack);
+    int size = stack_pop_e(&op, &buffer->stack);
     if(size >= 0)
     {
         switch(op)
         {
             case OP_DEL:
-                buffer_write_rewind(str, stack);
+                buffer_write_rewind(str, &buffer->stack);
                 break;
             case OP_ADD:
-                buffer_write_concat(str, stack);
+                buffer_write_concat(str, &buffer->stack);
                 break;
             case OP_MOV:
-                stack_push_vc(OP_MOV, stack);
-                buffer_write_new(str, stack);
+                stack_push_vc(OP_MOV, &buffer->stack);
+                buffer_write_new(str, &buffer->stack);
                 break;
         }
     }
     else
-        buffer_write_new(str, stack);
-    screen_input_text_sr(str);
+        buffer_write_new(str, &buffer->stack);
+    
+    struct buffer_line *line = list_current(&buffer->lines);
+    char* nl = strchr(str, '\n');
+    int max = screen_get_columns();
+    int len = strlen(str);
+    int y, x;
+    screen_get_cursor(&y, &x);
+    
+    if(!nl)
+    {
+        if(line->pos->size+len <= max)
+            line->pos->size += len;
+        else if(x+len <= max)
+        {
+            line->pos->size += len;
+            struct buffer_line* next = list_insert_next(0, &buffer->lines);
+            next->next = line->next;
+            if(line->next)
+                line->next->prev = next;
+            next->prev = line;
+            line->next = next;
+            // set size 0
+        }
+        screen_input_text_sr(len, line->pos->size, str);
+    }
+    else
+    {
+        
+    }
 }
 
 void buffer_delete_new(int count, char* buf, struct stack_state* stack)
@@ -595,5 +631,42 @@ void buffer_move(int amount, int y, int x, struct buffer_state* buffer)
                 if(nl)
                     --amount;
             }
+    }
+}
+
+int buffer_check_sufficient(int amount, int xpos, struct buffer_line* line)
+{
+    int size;
+    
+    if(amount > 0)
+    {
+        size = line->pos->size - xpos + (line->pos->newline ? 1:0);
+        if(amount <= size)
+            return 0;
+        amount -= size;
+        while(line->next)
+        {
+            line = line->next;
+            size = line->pos->size + (line->pos->newline ? 1:0);
+            if(amount <= size)
+                return 0;
+            amount -= size;
+        }
+        return file_check_sufficient(amount, line->pos->offset+line->pos->size, line->pos->line);
+    }
+    else
+    {
+        if(-amount <= xpos)
+            return 0;
+        amount += xpos;
+        while(line->prev)
+        {
+            line = line->prev;
+            size = line->pos->size + (line->pos->newline ? 1:0);
+            if(-amount <= size)
+                return 0;
+            amount += size;
+        }
+        return file_check_sufficient(amount, line->pos->offset, line->pos->line);
     }
 }

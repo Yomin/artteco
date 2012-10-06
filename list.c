@@ -253,6 +253,28 @@ void* list_insert_before(matchFunc* f, void* param, void* elem, struct list_stat
     return lelem;
 }
 
+void* list_insert_next(void* elem, struct list_state* list)
+{
+    struct list_elem* new = list_intern_gen(elem, list);
+    new->next = list->current->next;
+    if(new->next)
+        new->next->prev = new;
+    list->current->next = new;
+    new->prev = list->current;
+    return new;
+}
+
+void* list_insert_prev(void* elem, struct list_state* list)
+{
+    struct list_elem* new = list_intern_gen(elem, list);
+    new->prev = list->current->prev;
+    if(new->prev)
+        new->prev->next = new;
+    list->current->prev = new;
+    new->next = list->current;
+    return new;
+}
+
 void list_clear_f(mapFunc* f, struct list_state* list)
 {
     struct list_elem* current;

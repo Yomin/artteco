@@ -29,6 +29,7 @@
 #include <ncurses.h>
 #include <string.h>
 #include <signal.h>
+#include <stdlib.h>
 
 // DEFINES
 
@@ -60,6 +61,8 @@ void resizeHandler(int sig);
 WINDOW* win;
 int lines, columns;
 int tmp_y, tmp_x;
+char* tmpbuf;
+int bufsize;
 
 // EXTERNAL
 
@@ -79,6 +82,8 @@ void screen_init()
     init_pair(7, COLOR_BLACK, COLOR_BLACK);
     
     getmaxyx(stdscr, lines, columns);
+    tmpbuf = malloc(columns*sizeof(char));
+    bufsize = columns;
     
     screen_set_status(" ART TECO");
     screen_set_msg("");
@@ -92,6 +97,8 @@ void screen_init()
 
 void screen_finish()
 {
+    if(tmpbuf)
+        free(tmpbuf);
     endwin();
 }
 
@@ -264,14 +271,67 @@ void screen_input_text_cr(char c)
     wrefresh(win);
 }
 
-void screen_input_text_s(const char* str)
+void screen_input_text_s(int len, int linesize, const char* str)
 {
-    while(*str) screen_input_text_c(*str++);
+    int y, x;
+    getyx(win, y, x);
+    int rest = linesize-x;
+    
+    if(x+len+rest < columns)
+    {
+        winsstr(win, str);
+        wmove(win, y, x+len);
+    }
+    else if(x+len+rest == columns)
+    {
+        winsstr(win, str);
+        wmove(win, y+1, 0);
+        winsertln(win);
+        draw_cursor();
+    }
+    else if(x+len <= columns)
+    {
+        int wrap = rest - (columns-(x+len));
+        if(wrap >= bufsize)
+        {
+            tmpbuf = realloc(tmpbuf, (wrap+1)*sizeof(char));
+            bufsize = wrap+1;
+        }
+        winnstr(win, tmpbuf, wrap);
+        tmpbuf[wrap] = 0;
+        winsstr(win, str);
+        wmove(win, y+1, 0);
+        winsertln(win);
+        waddstr(win, tmpbuf);
+        draw_cursor();
+    }
+    else
+    {
+        if(rest >= bufsize)
+        {
+            tmpbuf = realloc(tmpbuf, (rest+1)*sizeof(char));
+            bufsize = rest+1;
+        }
+        winnstr(win, tmpbuf, rest);
+        tmpbuf[rest] = 0;
+        waddstr(win, str);
+        len -= columns-x;
+        str += columns-x;
+        while(len > columns)
+        {
+            waddstr(win, str);
+            len -= columns;
+            str += columns;
+        }
+        waddstr(win, str);
+        waddstr(win, tmpbuf);
+        draw_cursor();
+    }
 }
 
-void screen_input_text_sr(const char* str)
+void screen_input_text_sr(int len, int linesize, const char* str)
 {
-    screen_input_text_s(str);
+    screen_input_text_s(len, linesize, str);
     wrefresh(win);
 }
 
