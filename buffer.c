@@ -63,7 +63,7 @@ void load_lines(void* elem, void* akk);
 void show_lines(void* elem, void* akk);
 
 void buffer_write(const char* str, struct buffer_state* buffer);
-void buffer_delete(int count, char* buf, struct stack_state* stack);
+void buffer_delete(int count, char* buf, struct buffer_state* buffer);
 void buffer_move(int amount, int y, int x, struct buffer_state* buffer);
 
 int buffer_check_sufficient(int amount, int xpos, struct buffer_line* line);
@@ -123,7 +123,7 @@ void buffer_write_str_rubout()
     int len;
     rubout_load(&buffer);
     rubout_load(&len);
-    buffer_delete(len, 0, &buffer->stack);
+    buffer_delete(len, 0, buffer);
 }
 
 void buffer_write_str(const char* str, struct buffer_state* buffer)
@@ -156,7 +156,7 @@ int buffer_delete_str(int count, struct buffer_state* buffer)
     if(count > screen_get_pos()) // todo for scroll
         return BUFFER_ERROR_BEGIN;
     char* buf = rubout_save(0, count+1);
-    buffer_delete(count, buf, &buffer->stack);
+    buffer_delete(count, buf, buffer);
     buf[count] = 0;
     rubout_register(buffer_delete_str_rubout, &buffer, sizeof(struct buffer_state*));
     return 0;
@@ -551,32 +551,45 @@ void buffer_delete_rewind(int count, char* buf, struct stack_state* stack)
     }
 }
 
-void buffer_delete(int count, char* buf, struct stack_state* stack)
+void buffer_delete(int count, char* buf, struct buffer_state* buffer)
 {
     if(buf) buf[0] = 0;
     if(!count)
         return;
     char op;
-    int size = stack_pop_e(&op, stack);
+    int size = stack_pop_e(&op, &buffer->stack);
     if(size >= 0)
     {
         switch(op)
         {
             case OP_ADD:
-                buffer_delete_rewind(count, buf, stack);
+                buffer_delete_rewind(count, buf, &buffer->stack);
                 break;
             case OP_DEL:
-                buffer_delete_concat(count, buf, stack);
+                buffer_delete_concat(count, buf, &buffer->stack);
                 break;
             case OP_MOV:
-                stack_push_vc(OP_MOV, stack);
-                buffer_delete_new(count, buf, stack);
+                stack_push_vc(OP_MOV, &buffer->stack);
+                buffer_delete_new(count, buf, &buffer->stack);
                 break;
         }
     }
     else
-        buffer_delete_new(count, buf, stack);
+        buffer_delete_new(count, buf, &buffer->stack);
     screen_refresh();
+    
+    struct buffer_line *line = list_current(&buffer->lines);
+    int y, x;
+    screen_get_cursor(&y, &x);
+    
+    while(count > x)
+    {
+        line->pos->size -= x;
+        count -= x;
+        line = list_prev(&buffer->lines);
+        x = line->pos->size;
+    }
+    line->pos->size -= count;
 }
 
 void buffer_move(int amount, int y, int x, struct buffer_state* buffer)
