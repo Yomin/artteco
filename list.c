@@ -58,14 +58,14 @@ struct list_elem* list_intern_iterate(matchFunc* f, void* param, struct list_sta
 
 int list_intern_map(void* elem, void* param)
 {
-    mapFunc* f = (mapFunc*) param;
+    mapFunc* f = param;
     f(elem);
     return 0;
 }
 
 int list_intern_fold(void* elem, void* param)
 {
-    struct fold_state* state = (struct fold_state*) param;
+    struct fold_state* state = param;
     state->f(elem, state->akk);
     return 0;
 }
@@ -211,7 +211,7 @@ void* list_insert(int pos, void* elem, struct list_state* list)
         lelem->next = felem;
         felem->prev = lelem;
         ++list->size;
-        return lelem;
+        return lelem->elem;
     }
     if(pos == list->size)
     {
@@ -220,7 +220,7 @@ void* list_insert(int pos, void* elem, struct list_state* list)
         list->last->next = lelem;
         lelem->next = 0;
         ++list->size;
-        return lelem;
+        return lelem->elem;
     }
     return 0;
 }
@@ -236,7 +236,7 @@ void* list_insert_after(matchFunc* f, void* param, void* elem, struct list_state
         felem->next->prev = lelem;
     felem->next = lelem;
     lelem->prev = felem;
-    return lelem;
+    return lelem->elem;
 }
 
 void* list_insert_before(matchFunc* f, void* param, void* elem, struct list_state* list)
@@ -250,7 +250,7 @@ void* list_insert_before(matchFunc* f, void* param, void* elem, struct list_stat
         felem->prev->next = lelem;
     felem->prev = lelem;
     lelem->next = felem;
-    return lelem;
+    return lelem->elem;
 }
 
 void* list_insert_next(void* elem, struct list_state* list)
@@ -261,7 +261,7 @@ void* list_insert_next(void* elem, struct list_state* list)
         new->next->prev = new;
     list->current->next = new;
     new->prev = list->current;
-    return new;
+    return new->elem;
 }
 
 void* list_insert_prev(void* elem, struct list_state* list)
@@ -272,7 +272,7 @@ void* list_insert_prev(void* elem, struct list_state* list)
         new->prev->next = new;
     list->current->prev = new;
     new->next = list->current;
-    return new;
+    return new->elem;
 }
 
 void list_clear_f(mapFunc* f, struct list_state* list)
