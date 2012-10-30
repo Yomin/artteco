@@ -40,6 +40,12 @@ struct fold_state
     void* akk;
 };
 
+struct pos_state
+{
+    void* elem;
+    int pos;
+};
+
 // VARIABLES
 
 // INTERNAL
@@ -68,6 +74,18 @@ int list_intern_fold(void* elem, void* param)
     struct fold_state* state = param;
     state->f(elem, state->akk);
     return 0;
+}
+
+int list_intern_equal(void* elem, void* param)
+{
+    struct pos_state* state = param;
+    if(elem == state->elem)
+        return 1;
+    else
+    {
+        state->pos++;
+        return 0;
+    }
 }
 
 struct list_elem* list_intern_gen(void* elem, struct list_state* list)
@@ -264,6 +282,18 @@ void* list_insert_next(void* elem, struct list_state* list)
     return new->elem;
 }
 
+void* list_insert_next_c(void* elem, struct list_state* list)
+{
+    struct list_elem* new = list_intern_gen(elem, list);
+    new->next = list->current->next;
+    if(new->next)
+        new->next->prev = new;
+    list->current->next = new;
+    new->prev = list->current;
+    list->current = new;
+    return new->elem;
+}
+
 void* list_insert_prev(void* elem, struct list_state* list)
 {
     struct list_elem* new = list_intern_gen(elem, list);
@@ -272,6 +302,18 @@ void* list_insert_prev(void* elem, struct list_state* list)
         new->prev->next = new;
     list->current->prev = new;
     new->next = list->current;
+    return new->elem;
+}
+
+void* list_insert_prev_c(void* elem, struct list_state* list)
+{
+    struct list_elem* new = list_intern_gen(elem, list);
+    new->prev = list->current->prev;
+    if(new->prev)
+        new->prev->next = new;
+    list->current->prev = new;
+    new->next = list->current;
+    list->current = new;
     return new->elem;
 }
 
@@ -328,6 +370,29 @@ void* list_get_c(int pos, struct list_state* list)
         return 0;
     list->current = elem;
     return elem->elem;
+}
+
+int list_pos(void* elem, struct list_state* list)
+{
+    struct pos_state state;
+    state.elem = elem;
+    state.pos = 0;
+    struct list_elem* found = list_intern_iterate(list_intern_equal, &state, list);
+    if(!found)
+        return -1;
+    return state.pos;
+}
+
+int list_pos_c(void* elem, struct list_state* list)
+{
+    struct pos_state state;
+    state.elem = elem;
+    state.pos = 0;
+    struct list_elem* found = list_intern_iterate(list_intern_equal, &state, list);
+    if(!found)
+        return -1;
+    list->current = found;
+    return state.pos;
 }
 
 void* list_current(struct list_state* list)

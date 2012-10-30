@@ -59,12 +59,16 @@ void* list_insert(int pos, void* elem, struct list_state* list);
 void* list_insert_after(matchFunc* f, void* param, void* elem, struct list_state* list);
 void* list_insert_before(matchFunc* f, void* param, void* elem, struct list_state* list);
 void* list_insert_next(void* elem, struct list_state* list);
+void* list_insert_next_c(void* elem, struct list_state* list);
 void* list_insert_prev(void* elem, struct list_state* list);
+void* list_insert_prev_c(void* elem, struct list_state* list);
 
 void* list_find(matchFunc* f, void* param, struct list_state* list);
 void* list_find_c(matchFunc* f, void* param, struct list_state* list);
 void* list_get(int pos, struct list_state* list);
 void* list_get_c(int pos, struct list_state* list);
+int   list_pos(void* elem, struct list_state* list);
+int   list_pos_c(void* elem, struct list_state* list);
 
 void* list_current(struct list_state* list);
 void* list_last(struct list_state* list);

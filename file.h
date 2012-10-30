@@ -68,7 +68,7 @@ struct file_pos
 struct file_line
 {
     char line[FILE_LINE_SIZE+1];
-    int size;
+    int start, size;
     struct list_state pos;
     struct file_line* prev, *next;
 };
@@ -95,5 +95,8 @@ struct file_pos* file_chunk_add_pos(int line, int size, int offset, struct file_
 struct file_pos* file_line_add_pos(int size, int offset, struct file_line* line);
 
 int file_check_sufficient(int amount, int offset, struct file_line* line);
+
+void file_insert(const char *str, int size, int offset, struct file_line* line, struct list_state* lines);
+void file_erase(int size, int offset, struct file_line* line, struct list_state* lines);
 
 #endif

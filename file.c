@@ -33,7 +33,16 @@
 
 // FORWARDS
 
+struct file_line* file_gen_line(int mode, struct list_state* lines);
+
 // DEFINES
+
+#define INSERT_PREV 0
+#define INSERT_NEXT 1
+
+#define LINE_START(line) (line->line + line->start)
+#define LINE_END(line)   (line->line + line->start + line->size)
+#define LINE_FREE(line)  (FILE_LINE_SIZE - line->start - line->size)
 
 // VARIABLES
 
@@ -233,4 +242,203 @@ int file_check_sufficient(int amount, int offset, struct file_line* line)
             return 0;
         return -1;
     }
+}
+
+/** \brief Insert string into #file_line.
+ * 
+ * 
+ * 
+ * \param str    string to insert
+ * \param size   size of string to insert
+ * \param offset offset of insert position in #file_line
+ * \param line   #file_line
+ */
+void file_insert(const char *str, int size, int offset, struct file_line* line, struct list_state* lines)
+{
+    list_pos_c(line, lines);
+    
+    if(offset <= line->size/2)
+    {
+        if(size <= line->start)
+        {
+            memmove(LINE_START(line)-size, LINE_START(line), offset);
+            line->start -= size;
+            memcpy(LINE_START(line)+offset, str, size);
+            line->size += size;
+        }
+        else
+        {
+            struct file_line* prev = list_prev_s(lines);
+            
+            if(size > LINE_FREE(prev) + line->start)
+                prev = file_gen_line(INSERT_PREV, lines);
+            
+            if(size < offset + line->start)
+            {
+                int rest = line->start+offset-size;
+                memcpy(LINE_END(prev), LINE_START(line), offset-rest);
+                prev->size += offset-rest;
+                memcpy(line->line, LINE_START(line) + offset-rest, rest);
+                memcpy(line->line+rest, str, size);
+                line->size += line->start;
+                line->start = 0;
+            }
+            else
+            {
+                memcpy(LINE_END(prev), LINE_START(line), offset);
+                prev->size += offset;
+                int rest = size-offset-line->start;
+                int avail = LINE_FREE(prev);
+                
+                if(rest <= avail)
+                {
+                    memcpy(LINE_END(prev), str, rest);
+                    prev->size += rest;
+                    memcpy(line->line, str+rest, offset+line->start);
+                    line->size += line->start;
+                    line->start = 0;
+                }
+                else
+                {
+                    memcpy(LINE_END(prev), str, avail);
+                    prev->size += avail;
+                    str += avail;
+                    rest -= avail;
+                    
+                    while(rest > offset+line->start)
+                    {
+                        if(rest <= FILE_LINE_SIZE)
+                            avail = rest;
+                        else
+                            avail = FILE_LINE_SIZE;
+                        prev = file_gen_line(INSERT_PREV, lines);
+                        memcpy(prev->line, str, avail);
+                        prev->size = avail;
+                        str += avail;
+                        rest -= avail;
+                    }
+                    line->start += offset-rest;
+                    line->size += rest-offset;
+                    memcpy(LINE_START(line), str, rest);
+                }
+            }
+        }
+    }
+    else
+    {
+        if(size <= FILE_LINE_SIZE - line->start - line->size)
+        {
+            memmove(LINE_START(line)+offset+size, LINE_START(line)+offset, line->size-offset);
+            memcpy(LINE_START(line)+offset, str, size);
+            line->size += size;
+        }
+        else
+        {
+            struct file_line* next = list_next_s(lines);
+            
+            int avail = FILE_LINE_SIZE - line->start - offset;
+            int rest = line->size-offset;
+            int splitlen = rest - (avail-size);
+            
+            if(size > LINE_FREE(line) + next->start)
+            {
+                next = file_gen_line(INSERT_NEXT, lines);
+                next->start = splitlen;
+            }
+            
+            if(size < avail)
+            {
+                memcpy(LINE_START(next)-splitlen, LINE_START(line)+offset+(avail-size), splitlen);
+                next->start -= splitlen;
+                next->size += splitlen;
+                memmove(LINE_START(line)+offset+size, LINE_START(line)+offset, (avail-size));
+                memcpy(LINE_START(line)+offset, str, size);
+                line->size += LINE_FREE(line);
+            }
+            else
+            {
+                rest = line->size-offset;
+                memcpy(LINE_START(next)-offset, LINE_START(line)+offset, rest);
+                next->start -= rest;
+                next->size += rest;
+                line->size -= rest;
+                
+                rest = size-next->start;
+                avail = LINE_FREE(line);
+                
+                if(rest <= avail)
+                {
+                    memcpy(LINE_END(line), str, rest);
+                    line->size += rest;
+                    memcpy(next->line, str+rest, next->start);
+                    next->size += next->start;
+                    next->start = 0;
+                }
+                else
+                {
+                    memcpy(LINE_END(line), str, avail);
+                    line->size += avail;
+                    str += avail;
+                    rest -= avail;
+                    
+                    while(rest > next->start)
+                    {
+                        if(rest <= FILE_LINE_SIZE)
+                            avail = rest;
+                        else
+                            avail = FILE_LINE_SIZE;
+                        line = file_gen_line(INSERT_NEXT, lines);
+                        memcpy(line->line, str, avail);
+                        line->size = avail;
+                        str += avail;
+                        rest -= avail;
+                    }
+                    next->start -= rest;
+                    line->size += rest;
+                    memcpy(LINE_START(next), str, rest);
+                }
+            }
+        }
+    }
+}
+
+/** \brief Erase string from #file_line.
+ * 
+ * 
+ * 
+ * \param size   size of string to erase
+ * \param offset offset of erase position in #file_line
+ * \param line   #file_line
+ */
+void file_erase(int size, int offset, struct file_line* line, struct list_state* lines)
+{
+    
+}
+
+// INTERNAL
+
+struct file_line* file_gen_line(int mode, struct list_state* lines)
+{
+    struct file_line* current = list_current(lines);
+    struct file_line* new;
+    
+    if(mode == INSERT_PREV)
+    {
+        struct file_line* prev = list_prev_s(lines);
+        new = list_insert_prev(0, lines);
+        prev->next = new;
+        new->prev = prev;
+        current->prev = new;
+        new->next = current;
+    }
+    else
+    {
+        struct file_line* next = list_next_s(lines);
+        new = list_insert_next_c(0, lines);
+        next->prev = new;
+        new->next = next;
+        current->next = new;
+        new->prev = current;
+    }
+    return new;
 }
