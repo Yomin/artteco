@@ -40,9 +40,9 @@ struct file_line* file_gen_line(int mode, struct list_state* lines);
 #define INSERT_PREV 0
 #define INSERT_NEXT 1
 
-#define LINE_START(line) (line->line + line->start)
-#define LINE_END(line)   (line->line + line->start + line->size)
-#define LINE_FREE(line)  (FILE_LINE_SIZE - line->start - line->size)
+#define LINE_START(Line) (Line->line + Line->start)
+#define LINE_END(Line)   (Line->line + Line->start + Line->size)
+#define LINE_FREE(Line)  (FILE_LINE_SIZE - Line->start - Line->size)
 
 // VARIABLES
 
