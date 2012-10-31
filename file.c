@@ -33,8 +33,6 @@
 
 // FORWARDS
 
-struct file_line* file_gen_line(int mode, struct list_state* lines);
-
 // DEFINES
 
 #define INSERT_PREV 0
@@ -65,15 +63,13 @@ void rem_lines(void* elem)
  */
 void file_init(struct file_state* file)
 {
-    list_init(sizeof(struct file_chunk), &file->chunks);
+    list_init_s(sizeof(struct file_chunk), &file->chunks);
     struct file_chunk* first_chunk = list_add_sc(&file->chunks);
-    list_init(sizeof(struct file_line), &first_chunk->lines);
+    list_init(LIST_MODE_BASE, sizeof(struct file_line), &first_chunk->lines);
     struct file_line* first_line = list_add_sc(&first_chunk->lines);
-    list_init(sizeof(struct file_pos), &first_line->pos);
+    list_init_s(sizeof(struct file_pos), &first_line->pos);
     first_line->size = 0;
-    first_line->prev = 0;
-    first_line->next = 0;
-    list_init(sizeof(struct file_pos), &first_line->pos);
+    list_init_s(sizeof(struct file_pos), &first_line->pos);
     first_chunk->start = 0;
     first_chunk->end = -1;
     file->file = 0;
@@ -117,7 +113,6 @@ int file_load(const char* filename, struct file_state* file)
     int i = 0;
     struct file_chunk* chunk = list_get(0, &file->chunks);
     struct file_line* line = list_get(0, &chunk->lines);
-    struct file_line* next;
 
     do
     {
@@ -126,12 +121,8 @@ int file_load(const char* filename, struct file_state* file)
             break;
         if(ferror(file->file))
             THROW(EXCEPTION_IO);
-        next = list_add_s(&chunk->lines);
-        line->next = next;
-        next->prev = line;
-        line = next;
-        line->next = 0;
-        list_init(sizeof(struct file_pos), &line->pos);
+        line = list_add_s(&chunk->lines);
+        list_init_s(sizeof(struct file_pos), &line->pos);
         ++i;
     }
     while(i < FILE_LINE_COUNT_SOFT);
@@ -204,13 +195,13 @@ int file_check_sufficient(int amount, int offset, struct file_line* line)
     if(offset+amount > line->size)
     {
         offset -= line->size;
-        line = line->next;
+        line = list_get_next_d(line, sizeof(struct file_line));
         if(!line)
             return -1;
     }
     else if(offset+amount < 0)
     {
-        line = line->prev;
+        line = list_get_prev_d(line, sizeof(struct file_line));
         if(!line)
             return -1;
         offset = line->size - offset;
@@ -219,11 +210,11 @@ int file_check_sufficient(int amount, int offset, struct file_line* line)
     if(amount < 0)
     {
         amount += offset;
-        line = line->prev;
+        line = list_get_prev_d(line, sizeof(struct file_line));
         while(line && amount < 0)
         {
             amount += line->size;
-            line = line->prev;
+            line = list_get_prev_d(line, sizeof(struct file_line));
         }
         if(amount >= 0)
             return 0;
@@ -232,11 +223,11 @@ int file_check_sufficient(int amount, int offset, struct file_line* line)
     else
     {
         amount -= line->size-offset;
-        line = line->next;
+        line = list_get_next_d(line, sizeof(struct file_line));
         while(line && amount > 0)
         {
             amount -= line->size;
-            line = line->next;
+            line = list_get_next_d(line, sizeof(struct file_line));
         }
         if(amount <= 0)
             return 0;
@@ -253,8 +244,10 @@ int file_check_sufficient(int amount, int offset, struct file_line* line)
  * \param offset offset of insert position in #file_line
  * \param line   #file_line
  */
-void file_insert(const char *str, int size, int offset, struct file_line* line, struct list_state* lines)
+void file_insert(const char *str, int size, int offset, struct file_line* line)
 {
+    struct list_state* lines = list_get_base_d(line, sizeof(struct file_line));
+    
     list_pos_c(line, lines);
     
     if(offset <= line->size/2)
@@ -271,7 +264,7 @@ void file_insert(const char *str, int size, int offset, struct file_line* line, 
             struct file_line* prev = list_prev_s(lines);
             
             if(size > LINE_FREE(prev) + line->start)
-                prev = file_gen_line(INSERT_PREV, lines);
+                prev = list_insert_prev(0, lines);
             
             if(size < offset + line->start)
             {
@@ -311,7 +304,7 @@ void file_insert(const char *str, int size, int offset, struct file_line* line, 
                             avail = rest;
                         else
                             avail = FILE_LINE_SIZE;
-                        prev = file_gen_line(INSERT_PREV, lines);
+                        prev = list_insert_prev(0, lines);
                         memcpy(prev->line, str, avail);
                         prev->size = avail;
                         str += avail;
@@ -342,7 +335,7 @@ void file_insert(const char *str, int size, int offset, struct file_line* line, 
             
             if(size > LINE_FREE(line) + next->start)
             {
-                next = file_gen_line(INSERT_NEXT, lines);
+                next = list_insert_next_c(0, lines);
                 next->start = splitlen;
             }
             
@@ -387,7 +380,7 @@ void file_insert(const char *str, int size, int offset, struct file_line* line, 
                             avail = rest;
                         else
                             avail = FILE_LINE_SIZE;
-                        line = file_gen_line(INSERT_NEXT, lines);
+                        line = list_insert_next_c(0, lines);
                         memcpy(line->line, str, avail);
                         line->size = avail;
                         str += avail;
@@ -410,35 +403,8 @@ void file_insert(const char *str, int size, int offset, struct file_line* line, 
  * \param offset offset of erase position in #file_line
  * \param line   #file_line
  */
-void file_erase(int size, int offset, struct file_line* line, struct list_state* lines)
+void file_erase(int size, int offset, struct file_line* line)
 {
     
 }
 
-// INTERNAL
-
-struct file_line* file_gen_line(int mode, struct list_state* lines)
-{
-    struct file_line* current = list_current(lines);
-    struct file_line* new;
-    
-    if(mode == INSERT_PREV)
-    {
-        struct file_line* prev = list_prev_s(lines);
-        new = list_insert_prev(0, lines);
-        prev->next = new;
-        new->prev = prev;
-        current->prev = new;
-        new->next = current;
-    }
-    else
-    {
-        struct file_line* next = list_next_s(lines);
-        new = list_insert_next_c(0, lines);
-        next->prev = new;
-        new->next = next;
-        current->next = new;
-        new->prev = current;
-    }
-    return new;
-}

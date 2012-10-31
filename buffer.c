@@ -44,7 +44,6 @@ struct buffer_line
 {
     int size;
     struct file_pos* pos;
-    struct buffer_line *next, *prev;
 };
 
 struct load_state
@@ -67,7 +66,7 @@ void buffer_write(const char* str, struct buffer_state* buffer);
 void buffer_delete(int count, char* buf, struct buffer_state* buffer);
 void buffer_move(int amount, int y, int x, struct buffer_state* buffer);
 
-int buffer_check_sufficient(int amount, int xpos, struct buffer_line* line);
+int buffer_check_sufficient(int amount, int xpos, struct buffer_line* line, struct buffer_state* buffer);
 
 // EXTERNAL
 
@@ -79,10 +78,9 @@ void buffer_init(const char* name, int number, struct buffer_state* buffer)
     
     file_init(&buffer->file);
     
-    list_init(sizeof(struct buffer_line), &buffer->lines);
+    list_init(LIST_MODE_NXTPRV, sizeof(struct buffer_line), &buffer->lines);
     struct buffer_line* line = list_add_sc(&buffer->lines);
     line->pos = file_add_pos(0, 0, 0, 0, &buffer->file);
-    line->next = line->prev = 0;
 
     stack_init(STACK_MODE_EXT|STACK_MODE_QUEUE, sizeof(struct point), name, &buffer->stack);
     buffer->linenumber = 0;
@@ -231,7 +229,7 @@ int buffer_move_cursor(int amount, struct buffer_state* buffer)
     
     struct buffer_line* line = list_current(&buffer->lines);
     
-    if(buffer_check_sufficient(amount, p.x, line))
+    if(buffer_check_sufficient(amount, p.x, line, buffer))
     {
         if(amount < 0)
             return BUFFER_ERROR_BEGIN;
@@ -344,11 +342,7 @@ void load_lines(void* elem, void* akk)
             else
             {
                 ++state->bufferline_counter;
-                struct buffer_line* tmp = list_add_s(state->lines);
-                bufferline->next = tmp;
-                tmp->prev = bufferline;
-                tmp->next = 0;
-                bufferline = tmp;
+                bufferline = list_add_s(state->lines);
             }
         }
     }
@@ -377,7 +371,7 @@ void show_lines(void* elem, void* akk)
         screen_set_line(*counter, ptr);
         offset += f_line->size - b_line->pos->offset;
         size -= offset;
-        f_line = f_line->next;
+        f_line = list_get_next_d(f_line, sizeof(struct file_line));
         ptr = f_line->line;
         
         while(size > f_line->size)
@@ -385,7 +379,7 @@ void show_lines(void* elem, void* akk)
             screen_set_line_o(*counter, offset, ptr);
             offset += f_line->size;
             size -= f_line->size;
-            f_line = f_line->next;
+            f_line = list_get_next_d(f_line, sizeof(struct file_line));
             ptr = f_line->line;
         }
     }
@@ -482,12 +476,7 @@ void buffer_write(const char* str, struct buffer_state* buffer)
         else if(x+len <= max)
         {
             line->size += len;
-            struct buffer_line* next = list_insert_next(0, &buffer->lines);
-            next->next = line->next;
-            if(line->next)
-                line->next->prev = next;
-            next->prev = line;
-            line->next = next;
+            list_insert_next(0, &buffer->lines);
             // set size 0
         }
         screen_input_text_sr(len, line->size, str);
@@ -660,7 +649,7 @@ void buffer_move(int amount, int y, int x, struct buffer_state* buffer)
     }
 }
 
-int buffer_check_sufficient(int amount, int xpos, struct buffer_line* line)
+int buffer_check_sufficient(int amount, int xpos, struct buffer_line* line, struct buffer_state* buffer)
 {
     int size;
     
@@ -670,9 +659,9 @@ int buffer_check_sufficient(int amount, int xpos, struct buffer_line* line)
         if(amount <= size)
             return 0;
         amount -= size;
-        while(line->next)
+        while(list_get_next(line, &buffer->lines))
         {
-            line = line->next;
+            line = list_get_next(line, &buffer->lines);
             size = line->size + (line->pos->newline ? 1:0);
             if(amount <= size)
                 return 0;
@@ -685,9 +674,9 @@ int buffer_check_sufficient(int amount, int xpos, struct buffer_line* line)
         if(-amount <= xpos)
             return 0;
         amount += xpos;
-        while(line->prev)
+        while(list_get_prev(line, &buffer->lines))
         {
-            line = line->prev;
+            line = list_get_prev(line, &buffer->lines);
             size = line->size + (line->pos->newline ? 1:0);
             if(-amount <= size)
                 return 0;

@@ -90,12 +90,26 @@ int list_intern_equal(void* elem, void* param)
 
 struct list_elem* list_intern_gen(void* elem, struct list_state* list)
 {
-    struct list_elem* lelem = (struct list_elem*) malloc(sizeof(struct list_elem));
+    int size = sizeof(struct list_elem);
+    if(list->mode & LIST_MODE_BASE)
+        size += sizeof(void*);
+    
+    struct list_elem* lelem = malloc(size);
     if(!lelem)
         THROW(EXCEPTION_NO_MEMORY);
-    lelem->elem = malloc(list->elemsize);
+    if(list->mode & LIST_MODE_BASE)
+        memcpy((char*)lelem+sizeof(struct list_elem), &list, sizeof(void*));
+    
+    size = list->elemsize;
+    if(list->mode & (LIST_MODE_NXTPRV|LIST_MODE_BASE))
+        size += sizeof(void*);
+    
+    lelem->elem = malloc(size);
     if(!lelem->elem)
         THROW(EXCEPTION_NO_MEMORY);
+    if(list->mode & (LIST_MODE_NXTPRV|LIST_MODE_BASE))
+        memcpy((char*)lelem->elem+list->elemsize, &lelem, sizeof(void*));
+    
     lelem->next = 0;
     if(elem)
         memcpy(lelem->elem, elem, list->elemsize);
@@ -160,13 +174,19 @@ struct list_elem* list_intern_get(int pos, struct list_state* list)
 
 // EXTERNAL
 
-void list_init(int elemsize, struct list_state* list)
+void list_init_s(int elemsize, struct list_state* list)
+{
+    list_init(LIST_MODE_NORMAL, elemsize, list);
+}
+
+void list_init(char mode, int elemsize, struct list_state* list)
 {
     list->elemsize = elemsize;
     list->size = 0;
     list->first = 0;
     list->last = 0;
     list->current = 0;
+    list->mode = mode;
 }
 
 void* list_add(void* elem, struct list_state* list)
@@ -370,6 +390,57 @@ void* list_get_c(int pos, struct list_state* list)
         return 0;
     list->current = elem;
     return elem->elem;
+}
+
+void* list_get_next(void* elem, struct list_state* list)
+{
+    if(!(list->mode & LIST_MODE_NXTPRV))
+        THROW(EXCEPTION_WRONG_CONFIG);
+    
+    struct list_elem* lelem = 0;
+    memcpy(&lelem, (char*)elem+list->elemsize, sizeof(void*));
+    if(!lelem->next)
+        return 0;
+    return lelem->next->elem;
+}
+
+void* list_get_next_d(void* elem, int size)
+{
+    struct list_elem* lelem = 0;
+    memcpy(&lelem, (char*)elem+size, sizeof(void*));
+    if(!lelem->next)
+        return 0;
+    return lelem->next->elem;
+}
+
+void* list_get_prev(void* elem, struct list_state* list)
+{
+    if(!(list->mode & LIST_MODE_NXTPRV))
+        THROW(EXCEPTION_WRONG_CONFIG);
+    
+    struct list_elem* lelem = 0;
+    memcpy(&lelem, (char*)elem+list->elemsize, sizeof(void*));
+    if(!lelem->prev)
+        return 0;
+    return lelem->prev->elem;
+}
+
+void* list_get_prev_d(void* elem, int size)
+{
+    struct list_elem* lelem = 0;
+    memcpy(&lelem, (char*)elem+size, sizeof(void*));
+    if(!lelem->prev)
+        return 0;
+    return lelem->prev->elem;
+}
+
+struct list_state* list_get_base_d(void* elem, int size)
+{
+    struct list_elem* lelem = 0;
+    memcpy(lelem, (char*)elem+size, sizeof(void*));
+    struct list_state* list = 0;
+    memcpy(list, (char*)lelem+sizeof(struct list_elem), sizeof(void*));
+    return list;
 }
 
 int list_pos(void* elem, struct list_state* list)

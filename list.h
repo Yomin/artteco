@@ -27,6 +27,10 @@
 #ifndef __ART_TECO_LIST__
 #define __ART_TECO_LIST__
 
+#define LIST_MODE_NORMAL 0
+#define LIST_MODE_NXTPRV 1
+#define LIST_MODE_BASE   2
+
 typedef int  matchFunc(void* elem, void* param);
 typedef void mapFunc(void* elem);
 typedef void foldFunc(void* elem, void* akk);
@@ -42,9 +46,11 @@ struct list_state
     struct list_elem *first, *last, *current;
     int elemsize;
     int size;
+    char mode;
 };
 
-void list_init(int elemsize, struct list_state* list);
+void list_init_s(int elemsize, struct list_state* list);
+void list_init(char mode, int elemsize, struct list_state* list);
 void list_clear(struct list_state* list);
 void list_clear_f(mapFunc* f, struct list_state* list);
 
@@ -67,8 +73,15 @@ void* list_find(matchFunc* f, void* param, struct list_state* list);
 void* list_find_c(matchFunc* f, void* param, struct list_state* list);
 void* list_get(int pos, struct list_state* list);
 void* list_get_c(int pos, struct list_state* list);
+void* list_get_next(void* elem, struct list_state* list);
+void* list_get_prev(void* elem, struct list_state* list);
 int   list_pos(void* elem, struct list_state* list);
 int   list_pos_c(void* elem, struct list_state* list);
+
+// not recommended
+struct list_state* list_get_base_d(void* elem, int size);
+void*              list_get_next_d(void* elem, int size);
+void*              list_get_prev_d(void* elem, int size);
 
 void* list_current(struct list_state* list);
 void* list_last(struct list_state* list);

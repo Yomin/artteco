@@ -119,7 +119,7 @@ int mgr_add(const char* name, int number, const char* file)
 void buffer_mgr_init()
 {
     buffer_mgr_register_rubouts();
-    list_init(sizeof(struct buffer_state), &buffer_list);
+    list_init_s(sizeof(struct buffer_state), &buffer_list);
     count_intern = 0;
     count_buffer = 0;
     add("TECO-Main", --count_intern, 0);
