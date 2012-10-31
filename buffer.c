@@ -268,10 +268,9 @@ int buffer_move_cursor(int amount, struct buffer_state* buffer)
 
 void buffer_flush(struct buffer_state* buffer)
 {
-    int pos_y = 0, pos_x = 0;
+    int pos_y __attribute__((unused)) = 0, pos_x __attribute__((unused)) = 0;
     char op;
-    int size;
-    while((size = stack_pop_e(&op, &buffer->stack)) >= 0)
+    while(stack_pop_e(&op, &buffer->stack) >= 0)
     {
         switch(op)
         {
@@ -450,8 +449,7 @@ void buffer_write(const char* str, struct buffer_state* buffer)
     if(!*str)
         return;
     char op;
-    int size = stack_pop_e(&op, &buffer->stack);
-    if(size >= 0)
+    if(stack_pop_e(&op, &buffer->stack) >= 0)
     {
         switch(op)
         {
@@ -472,7 +470,7 @@ void buffer_write(const char* str, struct buffer_state* buffer)
     
     struct buffer_line *line = list_current(&buffer->lines);
     char* nl = strchr(str, '\n');
-    int max = screen_get_columns();
+    int max = screen_get_buffer_columns();
     int len = strlen(str);
     int y, x;
     screen_get_cursor(&y, &x);
@@ -502,11 +500,13 @@ void buffer_write(const char* str, struct buffer_state* buffer)
 
 void buffer_delete_new(int count, char* buf, struct stack_state* stack)
 {
-    char* elem = (char*) stack_push(0, count*sizeof(char), stack);
+    char* elem = stack_push(0, count*sizeof(char), stack);
     while(count--)
     {
         *elem = screen_delete_text();
-        if(buf) buf[count] = *elem++;
+        if(buf)
+            buf[count] = *elem;
+        elem++;
     }
     stack_push_vc(OP_DEL, stack);
 }
@@ -514,12 +514,14 @@ void buffer_delete_new(int count, char* buf, struct stack_state* stack)
 void buffer_delete_concat(int count, char* buf, struct stack_state* stack)
 {
     struct stack_elem delbuf = stack_top_p(stack);
-    char* elem = (char*) stack_top_r(delbuf.size+count, stack);
+    char* elem = stack_top_r(delbuf.size+count, stack);
     elem += delbuf.size;
     while(count--)
     {
         *elem = screen_delete_text();
-        if(buf) buf[count] = *elem++;
+        if(buf)
+            buf[count] = *elem;
+        elem++;
     }
     stack_push_vc(OP_DEL, stack);
 }
@@ -534,7 +536,8 @@ void buffer_delete_rewind(int count, char* buf, struct stack_state* stack)
     {
         screen_delete_text();
         --last; --count;
-        if(buf) buf[count] = next;
+        if(buf)
+            buf[count] = next;
         next = screen_get_text(-1);
     }
     
@@ -552,8 +555,7 @@ void buffer_delete_rewind(int count, char* buf, struct stack_state* stack)
         if(count)
         {
             char op;
-            int size = stack_pop_e(&op, stack);
-            if(size >= 0 && op == OP_DEL)
+            if(stack_pop_e(&op, stack) >= 0 && op == OP_DEL)
                 buffer_delete_concat(count, buf, stack);
             else
                 buffer_delete_new(count, buf, stack);
@@ -563,7 +565,8 @@ void buffer_delete_rewind(int count, char* buf, struct stack_state* stack)
 
 void buffer_delete(int count, char* buf, struct buffer_state* buffer)
 {
-    if(buf) buf[0] = 0;
+    if(buf)
+        buf[0] = 0;
     if(!count)
         return;
     
@@ -581,8 +584,7 @@ void buffer_delete(int count, char* buf, struct buffer_state* buffer)
     line->size -= count;
     
     char op;
-    int size = stack_pop_e(&op, &buffer->stack);
-    if(size >= 0)
+    if(stack_pop_e(&op, &buffer->stack) >= 0)
     {
         switch(op)
         {
