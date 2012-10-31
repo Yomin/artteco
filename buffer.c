@@ -556,6 +556,20 @@ void buffer_delete(int count, char* buf, struct buffer_state* buffer)
     if(buf) buf[0] = 0;
     if(!count)
         return;
+    
+    struct buffer_line *line = list_current(&buffer->lines);
+    int y, x;
+    screen_get_cursor(&y, &x);
+    
+    while(count > x)
+    {
+        line->pos->size -= x;
+        count -= x;
+        line = list_prev(&buffer->lines);
+        x = line->pos->size;
+    }
+    line->pos->size -= count;
+    
     char op;
     int size = stack_pop_e(&op, &buffer->stack);
     if(size >= 0)
@@ -577,19 +591,6 @@ void buffer_delete(int count, char* buf, struct buffer_state* buffer)
     else
         buffer_delete_new(count, buf, &buffer->stack);
     screen_refresh();
-    
-    struct buffer_line *line = list_current(&buffer->lines);
-    int y, x;
-    screen_get_cursor(&y, &x);
-    
-    while(count > x)
-    {
-        line->pos->size -= x;
-        count -= x;
-        line = list_prev(&buffer->lines);
-        x = line->pos->size;
-    }
-    line->pos->size -= count;
 }
 
 void buffer_move(int amount, int y, int x, struct buffer_state* buffer)
