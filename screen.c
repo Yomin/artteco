@@ -48,6 +48,8 @@
 #define STORE_POS(win)      getyx(win, tmp_y, tmp_x);
 #define RESTORE_POS(win)    wmove(win, tmp_y, tmp_x);
 
+#define STATUS_PREFIX " ART TECO "
+
 // FORWARDS
 
 void  print(int y, int x, chtype attr, const char* line, ...);
@@ -85,7 +87,7 @@ void screen_init()
     tmpbuf = malloc(columns*sizeof(char));
     bufsize = columns;
     
-    screen_set_status(" ART TECO");
+    screen_reset_status();
     screen_set_msg("");
     screen_reset_prompt();
     
@@ -164,7 +166,7 @@ void screen_set_status(const char* status, ...)
 {
     va_list arglist;
     va_start(arglist, status);
-    print(lines-3, 0, A_WHITE_RED, status, arglist);
+    vprint(lines-3, strlen(STATUS_PREFIX), A_WHITE_RED, status, arglist);
     va_end(arglist);
 }
 
@@ -182,6 +184,11 @@ void screen_set_prompt(const char* prompt, ...)
     va_start(arglist, prompt);
     vprint(lines-1, 0, A_RED_BLACK, prompt, arglist);
     va_end(arglist);
+}
+
+void screen_reset_status()
+{
+    print(lines-3, 0, A_WHITE_RED, STATUS_PREFIX);
 }
 
 void screen_reset_prompt()
@@ -394,7 +401,7 @@ void vprint(int y, int x, chtype attr, const char* line, va_list arglist)
     vw_printw(stdscr, line, arglist);
     int yy, xx;
     getyx(stdscr, yy, xx);
-    int count = columns - xx + x;
+    int count = columns - xx;
     while(--count >= 0)
         addch(' ');
     attroff(attr);
