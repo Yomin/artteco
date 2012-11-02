@@ -28,6 +28,7 @@
 #include "exception.h"
 
 #include <string.h>
+#include <stdlib.h>
 
 // FORWARDS
 
@@ -385,4 +386,113 @@ int stack_queue_get_e(void* elem, struct stack_state* stack)
 void stack_queue_reset(struct stack_state* stack)
 {
     stack->queue = stack->stack;
+}
+
+void stack_digup(int deep, int count, struct stack_state* stack)
+{
+    int size1 = 0, max1 = 100;
+    int size2 = 0, max2 = 100;
+    char* tmp1 = malloc(max1*sizeof(char));
+    char* tmp2 = malloc(max2*sizeof(char));
+    if(!tmp1 || !tmp2)
+        THROW(EXCEPTION_NO_MEMORY);
+    
+    int *max, *size, x, phase = 0;
+    char* tmp, *ptr = stack->ptr;
+    unsigned char y;
+    while(1)
+    {
+        if(phase == 0)
+        {
+            x = deep;
+            max = &max1;
+            size = &size1;
+            tmp = tmp1;
+            phase = 1;
+        }
+        else
+        {
+            x = count;
+            max = &max2;
+            size = &size2;
+            tmp = tmp2;
+            phase = 0;
+        }
+        while(x-- > 0)
+        {
+            if(stack->mode & STACK_MODE_EXT)
+            {
+                ptr -= sizeof(unsigned char);
+                memcpy(&y, ptr, sizeof(unsigned char));
+                ptr -= y;
+                if(*size+sizeof(unsigned char)+y >= *max)
+                    if(!(tmp = realloc(tmp, *max *= 2)))
+                        THROW(EXCEPTION_NO_MEMORY);
+                memcpy(tmp+*size, ptr, y);
+                *size += y;
+                memcpy(tmp+*size, &y, sizeof(unsigned char));
+                *size += sizeof(unsigned char);
+                if(stack->mode & STACK_MODE_QUEUE)
+                    ptr -= sizeof(unsigned char);
+            }
+            else
+            {
+                ptr -= stack->size;
+                if(*size+stack->size >= *max)
+                    if(!(tmp = realloc(tmp, *max *= 2)))
+                        THROW(EXCEPTION_NO_MEMORY);
+                memcpy(tmp+*size, ptr, stack->size);
+                *size += stack->size;
+            }
+        }
+        if(phase == 0)
+            break;
+    }
+    while(1)
+    {
+        if(phase == 0)
+        {
+            x = deep;
+            max = &max1;
+            size = &size1;
+            tmp = tmp1;
+            phase = 1;
+        }
+        else
+        {
+            x = count;
+            max = &max2;
+            size = &size2;
+            tmp = tmp2;
+            phase = 0;
+        }
+        while(x-- > 0)
+        {
+            if(stack->mode & STACK_MODE_EXT)
+            {
+                *size -= sizeof(unsigned char);
+                memcpy(&y, tmp+*size, sizeof(unsigned char));
+                if(stack->mode & STACK_MODE_QUEUE)
+                {
+                    memcpy(ptr, &y, sizeof(unsigned char));
+                    ptr += sizeof(unsigned char);
+                }
+                *size -= y;
+                memcpy(ptr, tmp+*size, y);
+                ptr += y;
+                memcpy(ptr, &y, sizeof(unsigned char));
+                ptr += sizeof(unsigned char);
+            }
+            else
+            {
+                *size -= stack->size;
+                memcpy(ptr, tmp+*size, stack->size);
+                ptr += stack->size;
+            }
+        }
+        if(phase == 0)
+            break;
+    }
+    free(tmp1);
+    free(tmp2);
 }

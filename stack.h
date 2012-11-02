@@ -127,4 +127,6 @@ int  stack_queue_get(void* elem, struct stack_state* stack);
 int  stack_queue_get_e(void* elem, struct stack_state* stack);
 void stack_queue_reset(struct stack_state* stack);
 
+void stack_digup(int deep, int count, struct stack_state* stack);
+
 #endif
