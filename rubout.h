@@ -45,6 +45,7 @@ void  rubout_break();
 void  rubout_clear();
 void  rubout();
 void  rubout_ptr_register(rubout_func* f);
+void  rubout_switch_top();
 
 #ifndef NDEBUG
     #define rubout_register_s(f) rubout_register_s_dbg(f, STR(f), __func__)

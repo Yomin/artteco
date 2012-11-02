@@ -42,6 +42,7 @@ struct stack_state stk_rubout, stk_counter;
 int break_lvl;
 rubout_func* rubout_ptr[RUBOUT_PTR_COUNT];
 int rubout_ptr_count;
+int size_top, size_snd, top_done;
 
 // INTERNAL
 
@@ -55,12 +56,23 @@ int stk_counter_inc(void* elem, int size)
 RUBOUT_PTR_TYPE get_intern(rubout_func* f)
 {
     RUBOUT_PTR_TYPE i;
-    for(i=0; i<RUBOUT_PTR_COUNT; ++i)
+    for(i=0; i<rubout_ptr_count; ++i)
     {
         if(rubout_ptr[i] == f)
             return i;
     }
     return 0;
+}
+
+void store_top()
+{
+    if(top_done)
+    {
+        size_snd = size_top;
+        top_done = 0;
+        size_top = 0;
+    }
+    size_top++;
 }
 
 // EXTERNAL
@@ -73,6 +85,8 @@ void rubout_init()
     break_lvl = 0;
     rubout_ptr_count = 1;
     rubout_ptr_register(rubout);
+    size_top = size_snd = -1;
+    top_done = 1;
 }
 
 void rubout_finish()
@@ -104,6 +118,8 @@ DEBUGIZE_1(void, rubout_register_s, rubout_func* f)
         stack_push_s(&g, &stk_rubout),
         stack_push_s_dbg(&g, &stk_rubout, dbg_arg, dbg_func)
     );
+    store_top();
+    top_done = 1;
     stack_exec(&stk_counter);
 }
 
@@ -120,6 +136,7 @@ DEBUGIZE_3(void, rubout_register, rubout_func* f, void* data, int size)
 
 DEBUGIZE_2(void*, rubout_save, void* data, int size)
 {
+    store_top();
     DEBUG
     (
         return stack_push(data, size, &stk_rubout),
@@ -177,11 +194,23 @@ void rubout_clear()
     stack_clear(&stk_counter);
     break_lvl = 0;
     rubout_ptr_count = 1;
+    size_top = size_snd = -1;
+    top_done = 1;
 }
 
 void rubout_break()
 {
     break_lvl = 1;
+}
+
+void rubout_switch_top()
+{
+    if(size_top == -1 || size_snd == -1)
+        THROW(EXCEPTION_FUNCTION_MISSUSE);
+    stack_digup(size_top, size_snd, &stk_rubout);
+    int tmp = size_top;
+    size_top = size_snd;
+    size_snd = tmp;
 }
 
 void rubout_ptr_register(rubout_func* f)
