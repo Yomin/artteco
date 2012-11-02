@@ -27,6 +27,7 @@
 #include "buffer_mgr.h"
 #include "list.h"
 #include "rubout.h"
+#include "screen.h"
 
 #include <string.h>
 #include <libgen.h>
@@ -110,6 +111,7 @@ int mgr_add(const char* name, int number, const char* file)
     int ret = add(name, number, file);
     if(ret)
         return ret;
+    buffer_display_status(list_current(&buffer_list), current);
     rubout_register(mgr_add_rubout, &current->number, sizeof(int));
     return 0;
 }
@@ -123,6 +125,7 @@ void buffer_mgr_init()
     count_intern = 0;
     count_buffer = 0;
     add("TECO-Main", --count_intern, 0);
+    screen_set_status(buffer_status(list_current(&buffer_list)));
 }
 
 void buffer_mgr_finish()

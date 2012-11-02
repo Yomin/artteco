@@ -53,6 +53,7 @@
 
 struct buffer_state
 {
+    char status;
     char name[BUFFER_NAME_SIZE];
     int number, linenumber;
     struct list_state lines;
@@ -64,6 +65,9 @@ void buffer_init(const char* name, int number, struct buffer_state* buffer);
 void buffer_close(struct buffer_state* buffer);
 int  buffer_load(const char* file, struct buffer_state* buffer);
 
+const char* buffer_status(struct buffer_state* buffer);
+void        buffer_display_status(struct buffer_state* buffer, struct buffer_state* prev);
+
 void buffer_write_str(const char* str, struct buffer_state* buffer);
 int  buffer_delete_str(int count, struct buffer_state* buffer);
 void buffer_write_char(char c, struct buffer_state* buffer);
@@ -74,7 +78,6 @@ void buffer_display(struct buffer_state* buffer);
 int  buffer_move_cursor(int amount, struct buffer_state* buffer);
 
 void buffer_flush(struct buffer_state* buffer);
-
 void buffer_register_rubouts();
 
 #endif

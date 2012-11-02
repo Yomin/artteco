@@ -34,6 +34,10 @@
 
 // DEFINES
 
+#define BUFFER_STATUS_SIZE 80
+#define BUFFER_STATUS_MODIFIED 1
+#define BUFFER_STATUS_READONLY 2
+
 #define MIN(x,y) ((x)<(y) ? (x) : (y))
 
 #define OP_ADD 0
@@ -67,6 +71,10 @@ void buffer_delete(int count, char* buf, struct buffer_state* buffer);
 void buffer_move(int amount, int y, int x, struct buffer_state* buffer);
 
 int buffer_check_sufficient(int amount, int xpos, struct buffer_line* line, struct buffer_state* buffer);
+
+// VARIABLES
+
+char buf[BUFFER_STATUS_SIZE];
 
 // EXTERNAL
 
@@ -116,12 +124,49 @@ int buffer_load(const char* file, struct buffer_state* buffer)
     return 0;
 }
 
+const char* buffer_status(struct buffer_state* buffer)
+{
+    const char* status = "", *str = "";
+    switch(buffer->status)
+    {
+        case BUFFER_STATUS_MODIFIED:
+            status = " (modified)";
+            break;
+        case BUFFER_STATUS_READONLY:
+            status = " (readonly)";
+            break;
+    }
+    if(strlen(buffer->file.name) > 0)
+        str = "\"";
+    snprintf(buf, BUFFER_STATUS_SIZE, "<%i> %s%s %s%s%s", buffer->number,
+        buffer->name, status, str, buffer->file.name, str);
+    return buf;
+}
+
+void buffer_display_status_rubout()
+{
+    struct buffer_state* buffer;
+    rubout_load(&buffer);
+    screen_set_status(buffer_status(buffer));
+}
+
+void buffer_display_status(struct buffer_state* buffer, struct buffer_state* prev)
+{
+    screen_set_status(buffer_status(buffer));
+    rubout_register(buffer_display_status_rubout, &prev, sizeof(struct buffer_state*));
+}
+
 void buffer_write_str_rubout()
 {
     struct buffer_state* buffer;
     int len;
     rubout_load(&buffer);
     rubout_load(&len);
+    if(len < 0)
+    {
+        len = -len;
+        buffer->status &= ~BUFFER_STATUS_MODIFIED;
+    }
     buffer_delete(len, 0, buffer);
 }
 
@@ -129,6 +174,15 @@ void buffer_write_str(const char* str, struct buffer_state* buffer)
 {
     buffer_write(str, buffer);
     int len = strlen(str);
+    
+    if(!(buffer->status & BUFFER_STATUS_MODIFIED))
+    {
+        len = -len;
+        buffer->status |= BUFFER_STATUS_MODIFIED;
+        buffer_display_status(buffer, buffer);
+        // first status rubout to revert status after str rubout
+    }
+        
     rubout_save(&len, sizeof(int));
     rubout_register(buffer_write_str_rubout, &buffer, sizeof(struct buffer_state*));
 }
@@ -148,16 +202,29 @@ void buffer_delete_str_rubout()
     char* buf = rubout_top_ptr();
     buffer_write_str(buf, buffer);
     rubout_load(0);
+    if(buf[0])
+        buffer->status &= ~BUFFER_STATUS_MODIFIED;
 }
 
 int buffer_delete_str(int count, struct buffer_state* buffer)
 {
     if(count > screen_get_pos()) // todo for scroll
         return BUFFER_ERROR_BEGIN;
-    char* buf = rubout_save(0, count+1);
-    buffer_delete(count, buf, buffer);
-    buf[count] = 0;
+    
+    if(!(buffer->status & BUFFER_STATUS_MODIFIED))
+    {
+        buf[0] = 1;
+        buffer->status |= BUFFER_STATUS_MODIFIED;
+        buffer_display_status(buffer, buffer);
+        // first status rubout to revert status after delete rubout
+    }
+    
+    char* buf = rubout_save(0, count+2);
+    buffer_delete(count, buf+1, buffer);
+    buf[count+1] = 0;
+    
     rubout_register(buffer_delete_str_rubout, &buffer, sizeof(struct buffer_state*));
+    
     return 0;
 }
 
@@ -288,6 +355,7 @@ void buffer_register_rubouts()
     rubout_ptr_register(buffer_delete_str_rubout);
     rubout_ptr_register(buffer_scroll_rubout);
     rubout_ptr_register(buffer_move_cursor_rubout);
+    rubout_ptr_register(buffer_display_status_rubout);
 }
 
 // INTERNAL
