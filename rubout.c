@@ -154,6 +154,8 @@ void rubout_start()
 
 void rubout_end()
 {
+    if(stack_empty(&stk_counter)) // cleared
+        return;
     if(break_lvl != 1)
     {
         char counter;
