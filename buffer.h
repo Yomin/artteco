@@ -46,10 +46,12 @@
 
 #define BUFFER_NAME_SIZE 80
 
-#define BUFFER_ERROR_FILE_NOT_FOUND -1
-#define BUFFER_ERROR_FILE_NAME_SIZE -2
-#define BUFFER_ERROR_BEGIN          -3
-#define BUFFER_ERROR_END            -4
+#define BUFFER_ERROR_FILE_NOT_FOUND  -1
+#define BUFFER_ERROR_FILE_NAME_SIZE  -2
+#define BUFFER_ERROR_FILE_NO_SPACE   -3
+#define BUFFER_ERROR_FILE_CANT_WRITE -4
+#define BUFFER_ERROR_BEGIN           -5
+#define BUFFER_ERROR_END             -6
 
 struct buffer_state
 {
@@ -64,6 +66,8 @@ struct buffer_state
 void buffer_init(const char* name, int number, struct buffer_state* buffer);
 void buffer_close(struct buffer_state* buffer);
 int  buffer_load(const char* file, struct buffer_state* buffer);
+void buffer_flush(struct buffer_state* buffer);
+int  buffer_save(const char* filename, struct buffer_state* buffer);
 
 const char* buffer_status(struct buffer_state* buffer);
 void        buffer_display_status(struct buffer_state* buffer, struct buffer_state* prev);
@@ -77,7 +81,6 @@ int  buffer_scroll(int lines, struct buffer_state* buffer);
 void buffer_display(struct buffer_state* buffer);
 int  buffer_move_cursor(int amount, struct buffer_state* buffer);
 
-void buffer_flush(struct buffer_state* buffer);
 void buffer_register_rubouts();
 
 #endif

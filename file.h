@@ -55,8 +55,10 @@
 
 #define FILE_NAME_SIZE 80
 
-#define FILE_ERROR_NOT_FOUND -1
-#define FILE_ERROR_NAME_SIZE -2
+#define FILE_ERROR_NOT_FOUND  -1
+#define FILE_ERROR_NAME_SIZE  -2
+#define FILE_ERROR_NO_SPACE   -3
+#define FILE_ERROR_CANT_WRITE -4
 
 struct file_pos
 {
@@ -88,6 +90,7 @@ struct file_state
 void file_init(struct file_state* file);
 void file_close(struct file_state* file);
 int  file_load(const char* filename, struct file_state* file);
+int  file_save(const char* filename, struct file_state* file);
 
 struct file_pos* file_add_pos(int chunk, int line, int size, int offset, struct file_state* file);
 struct file_pos* file_chunk_add_pos(int line, int size, int offset, struct file_chunk* chunk);

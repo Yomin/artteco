@@ -28,6 +28,7 @@
 #include "list.h"
 #include "rubout.h"
 #include "screen.h"
+#include "exception.h"
 
 #include <string.h>
 #include <libgen.h>
@@ -37,6 +38,7 @@
 // FORWARDS
 
 void buffer_mgr_register_rubouts();
+int buffer_mgr_map_error(int buffererror);
 
 // VARIABLES
 
@@ -82,13 +84,9 @@ int add(const char* name, int number, const char* file)
     buffer_init(name, number, current);
     if(file)
     {
-        switch(buffer_load(file, current))
-        {
-            case BUFFER_ERROR_FILE_NOT_FOUND:
-                return BUFFER_MGR_ERROR_FILE_NOT_FOUND;
-            case BUFFER_ERROR_FILE_NAME_SIZE:
-                return BUFFER_MGR_ERROR_FILE_NAME_SIZE;
-        }
+        int ret = buffer_mgr_map_error(buffer_load(file, current));
+        if(ret)
+            return ret;
     }
     buffer_display(current);
     return 0;
@@ -131,6 +129,11 @@ void buffer_mgr_init()
 void buffer_mgr_finish()
 {
     list_clear_f((mapFunc*)buffer_close, &buffer_list);
+}
+
+void buffer_mgr_flush()
+{
+    list_map((mapFunc*)buffer_flush, &buffer_list);
 }
 
 void buffer_mgr_add(const char* name)
@@ -199,4 +202,18 @@ void buffer_mgr_register_rubouts()
     rubout_ptr_register(mgr_add_rubout);
     rubout_ptr_register(buffer_mgr_delete_rubout);
     rubout_ptr_register(buffer_mgr_switch_rubout);
+}
+
+int buffer_mgr_map_error(int buffererror)
+{
+    switch(buffererror)
+    {
+        case 0:                            return 0;
+        case BUFFER_ERROR_FILE_NOT_FOUND:  return BUFFER_MGR_ERROR_FILE_NOT_FOUND;
+        case BUFFER_ERROR_FILE_NAME_SIZE:  return BUFFER_MGR_ERROR_FILE_NAME_SIZE;
+        case BUFFER_ERROR_FILE_NO_SPACE:   return BUFFER_MGR_ERROR_FILE_NO_SPACE;
+        case BUFFER_ERROR_FILE_CANT_WRITE: return BUFFER_MGR_ERROR_FILE_CANT_WRITE;
+    }
+    THROW(EXCEPTION_UNKNOWN_RETURN);
+    return 0;
 }

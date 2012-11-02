@@ -32,11 +32,14 @@
 #define BUFFER_MGR_ERROR_ACCESS_FORBIDDEN -1
 #define BUFFER_MGR_ERROR_FILE_NOT_FOUND   -2
 #define BUFFER_MGR_ERROR_FILE_NAME_SIZE   -3
-#define BUFFER_MGR_ERROR_NOT_FOUND        -4
-#define BUFFER_MGR_ERROR_EXISTING         -5
+#define BUFFER_MGR_ERROR_FILE_NO_SPACE    -4
+#define BUFFER_MGR_ERROR_FILE_CANT_WRITE  -5
+#define BUFFER_MGR_ERROR_NOT_FOUND        -6
+#define BUFFER_MGR_ERROR_EXISTING         -7
 
 void buffer_mgr_init();
 void buffer_mgr_finish();
+void buffer_mgr_flush();
 
 void buffer_mgr_add(const char* name);
 void buffer_mgr_add_intern(const char* name);

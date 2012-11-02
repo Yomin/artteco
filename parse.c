@@ -30,6 +30,7 @@
 #include "help.h"
 #include "screen.h"
 #include "exception.h"
+#include "buffer_mgr.h"
 
 #include <stdlib.h>
 
@@ -393,6 +394,7 @@ int process_cmd(char c)
                 return STATUS_FAILURE;
             
             case CMD_RET_FINISH:
+                buffer_mgr_flush();
                 while(!stack_empty(&stk_after))
                 {
                     cmd_after* a;

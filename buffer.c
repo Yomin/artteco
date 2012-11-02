@@ -72,6 +72,8 @@ void buffer_move(int amount, int y, int x, struct buffer_state* buffer);
 
 int buffer_check_sufficient(int amount, int xpos, struct buffer_line* line, struct buffer_state* buffer);
 
+int buffer_map_error(int fileerror);
+
 // VARIABLES
 
 char buf[BUFFER_STATUS_SIZE];
@@ -103,13 +105,9 @@ void buffer_close(struct buffer_state* buffer)
 
 int buffer_load(const char* file, struct buffer_state* buffer)
 {
-    switch(file_load(file, &buffer->file))
-    {
-        case FILE_ERROR_NOT_FOUND:
-            return BUFFER_ERROR_FILE_NOT_FOUND;
-        case FILE_ERROR_NAME_SIZE:
-            return BUFFER_ERROR_FILE_NAME_SIZE;
-    }
+    int ret = buffer_map_error(file_load(file, &buffer->file));
+    if(ret)
+        return ret;
     
     struct file_chunk* chunk = list_get(0, &buffer->file.chunks);
     
@@ -122,6 +120,30 @@ int buffer_load(const char* file, struct buffer_state* buffer)
     list_fold(load_lines, &state, &chunk->lines);
     
     return 0;
+}
+
+void buffer_flush(struct buffer_state* buffer)
+{
+    int pos_y __attribute__((unused)) = 0, pos_x __attribute__((unused)) = 0;
+    char op;
+    while(stack_pop_e(&op, &buffer->stack) >= 0)
+    {
+        switch(op)
+        {
+            case OP_ADD:
+                break;
+            case OP_DEL:
+                break;
+            case OP_MOV:
+                break;
+        }
+    }
+}
+
+int buffer_save(const char* filename, struct buffer_state* buffer)
+{
+    buffer_flush(buffer);
+    return buffer_map_error(file_save(filename, &buffer->file));
 }
 
 const char* buffer_status(struct buffer_state* buffer)
@@ -329,24 +351,6 @@ int buffer_move_cursor(int amount, struct buffer_state* buffer)
     rubout_save(&amount, sizeof(int));
     rubout_register(buffer_move_cursor_rubout, &buffer, sizeof(struct buffer_state*));
     return 0;
-}
-
-void buffer_flush(struct buffer_state* buffer)
-{
-    int pos_y __attribute__((unused)) = 0, pos_x __attribute__((unused)) = 0;
-    char op;
-    while(stack_pop_e(&op, &buffer->stack) >= 0)
-    {
-        switch(op)
-        {
-            case OP_ADD:
-                break;
-            case OP_DEL:
-                break;
-            case OP_MOV:
-                break;
-        }
-    }
 }
 
 void buffer_register_rubouts()
@@ -752,4 +756,18 @@ int buffer_check_sufficient(int amount, int xpos, struct buffer_line* line, stru
         }
         return file_check_sufficient(amount, line->pos->offset, line->pos->line);
     }
+}
+
+int buffer_map_error(int fileerror)
+{
+    switch(fileerror)
+    {
+        case 0:                     return 0;
+        case FILE_ERROR_NOT_FOUND:  return BUFFER_ERROR_FILE_NOT_FOUND;
+        case FILE_ERROR_NAME_SIZE:  return BUFFER_ERROR_FILE_NAME_SIZE;
+        case FILE_ERROR_NO_SPACE:   return BUFFER_ERROR_FILE_NO_SPACE;
+        case FILE_ERROR_CANT_WRITE: return BUFFER_ERROR_FILE_CANT_WRITE;
+    }
+    THROW(EXCEPTION_UNKNOWN_RETURN);
+    return 0;
 }

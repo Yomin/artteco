@@ -288,6 +288,37 @@ struct cmd_ret extra_buffer_load(int given, int param)
     return ret(CMD_RET_SUCCESS, 0);
 }
 
+// BUFFER SAVE
+// main:    register buffer save function
+// func[0]: flush buffer to file, clear modified bit
+
+struct cmd_ret extra_buffer_save_func(char* str)
+{
+    if(strlen(str) == 0)
+        str = 0;
+    
+    switch(buffer_save(str, buffer_mgr_current()))
+    {
+        case BUFFER_ERROR_FILE_NO_SPACE:
+            screen_set_msg("no space left");
+            return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
+        case BUFFER_ERROR_FILE_CANT_WRITE:
+            screen_set_msg("write failed");
+            return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
+    }
+    
+    return ret(CMD_RET_SUCCESS, 0);
+}
+
+struct cmd_ret extra_buffer_save(int given, int param)
+{
+    parse_register_func(extra_buffer_save_func);
+    
+    cmd_switch_table(TAB_STD);
+    
+    return ret(CMD_RET_SUCCESS, 0);
+}
+
 
 // REGISTER
 
@@ -302,6 +333,7 @@ void cmds_register()
     cmd_table[TAB_STD][','] = std_push;
     
     cmd_table[TAB_EXTRA]['b'] = extra_buffer_load;
+    cmd_table[TAB_EXTRA]['w'] = extra_buffer_save;
     cmd_table[TAB_EXTRA]['x'] = extra_exit;
 }
 

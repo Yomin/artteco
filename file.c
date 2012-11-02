@@ -129,6 +129,22 @@ int file_load(const char* filename, struct file_state* file)
     return 0;
 }
 
+/** \brief Save lines to file.
+ * 
+ * 
+ * 
+ * \param filename                file to save to, if 0 file->name is used
+ * \param file                    #file_state
+ * \retval #FILE_ERROR_NO_SPACE   no space left on device
+ * \retval #FILE_ERROR_CANT_WRITE write failed, eg. not authorized
+ * \retval 0                      file successful written
+ */
+int file_save(const char* filename, struct file_state* file)
+{
+    // todo
+    return -1;
+}
+
 /** \brief Add a #file_pos to a line.
  * 
  * Similar version of #file_line_add_pos.
