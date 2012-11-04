@@ -266,7 +266,7 @@ void file_insert(const char *str, int size, int offset, struct file_line* line)
     
     list_pos_c(line, lines);
     
-    if(offset <= line->size/2)
+    if(line->size > FILE_LINE_SIZE/2 && offset <= line->size/2)
     {
         if(size <= line->start)
         {
@@ -278,6 +278,8 @@ void file_insert(const char *str, int size, int offset, struct file_line* line)
         else
         {
             struct file_line* prev = list_prev_s(lines);
+            if(!prev)
+                prev = list_insert_prev(0, lines);
             
             if(size > LINE_FREE(prev) + line->start)
                 prev = list_insert_prev(0, lines);
@@ -344,6 +346,8 @@ void file_insert(const char *str, int size, int offset, struct file_line* line)
         else
         {
             struct file_line* next = list_next_s(lines);
+            if(!next)
+                next = list_insert_next(0, lines);
             
             int avail = FILE_LINE_SIZE - line->start - offset;
             int rest = line->size-offset;
