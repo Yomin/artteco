@@ -383,9 +383,48 @@ int stack_queue_get_e(void* elem, struct stack_state* stack)
         return stack_queue_get(elem, stack);
 }
 
+struct stack_elem stack_queue_top_p(struct stack_state* stack)
+{
+    struct stack_elem elem;
+    unsigned char size;
+    if(stack->queue == stack->ptr)
+        THROW(EXCEPTION_QUEUE_EMPTY);
+    if(stack->mode & STACK_MODE_EXT)
+    {
+        memcpy(&size, stack->queue, sizeof(unsigned char));
+        elem.size = (int)size;
+        elem.ptr = stack->queue+sizeof(unsigned char);
+    }
+    else
+    {
+        elem.size = (int)stack->size;
+        elem.ptr = stack->queue;
+    }
+    return elem;
+}
+
 void stack_queue_reset(struct stack_state* stack)
 {
     stack->queue = stack->stack;
+}
+
+void stack_queue_next(struct stack_state* stack)
+{
+    unsigned char size;
+    if(stack->queue == stack->ptr)
+        THROW(EXCEPTION_QUEUE_EMPTY);
+    if(stack->mode & STACK_MODE_EXT)
+    {
+        memcpy(&size, stack->queue, sizeof(unsigned char));
+        stack->queue += 2*sizeof(unsigned char) + size;
+    }
+    else
+        stack->queue += stack->size;
+}
+
+int stack_queue_empty(struct stack_state* stack)
+{
+    return stack->queue == stack->ptr;
 }
 
 void stack_digup(int deep, int count, struct stack_state* stack)

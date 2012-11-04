@@ -123,9 +123,12 @@ int stack_exec(struct stack_state* stack);
 
 int stack_used_bytes(struct stack_state* stack);
 
-int  stack_queue_get(void* elem, struct stack_state* stack);
-int  stack_queue_get_e(void* elem, struct stack_state* stack);
-void stack_queue_reset(struct stack_state* stack);
+int               stack_queue_get(void* elem, struct stack_state* stack);
+int               stack_queue_get_e(void* elem, struct stack_state* stack);
+struct stack_elem stack_queue_top_p(struct stack_state* stack);
+void              stack_queue_reset(struct stack_state* stack);
+void              stack_queue_next(struct stack_state* stack);
+int               stack_queue_empty(struct stack_state* stack);
 
 void stack_digup(int deep, int count, struct stack_state* stack);
 
