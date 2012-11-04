@@ -25,7 +25,7 @@ $(NAME): $(OBJECTS)
 
 %.o: %.c
 	@echo -e compile $< $(RED)
-	@gcc -c $(FLAGS) $(LIBS) -o $@ $<
+	@gcc -c $(FLAGS) $(LIBS) -o $@ $< || true
 	@echo -en $(NORMAL)
 
 clean:
