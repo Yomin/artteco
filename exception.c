@@ -118,6 +118,7 @@ const char* exception_str(int exc)
     {
         case EXCEPTION_IO:               return "io error";
         case EXCEPTION_NO_MEMORY:        return "unsufficient memory";
+        case EXCEPTION_NO_SPACE:         return "unsufficient file system space";
         case EXCEPTION_STACK_OVERFLOW:   return "stack overflow";
         case EXCEPTION_STACK_EMPTY:      return "stack empty";
         case EXCEPTION_FUNCTION_MISSING: return "function missing";
@@ -125,6 +126,8 @@ const char* exception_str(int exc)
         case EXCEPTION_BUFFER_OVERFLOW:  return "buffer overflow";
         case EXCEPTION_QUEUE_EMPTY:      return "queue empty";
         case EXCEPTION_WRONG_CONFIG:     return "wrong configuration";
+        case EXCEPTION_FUNCTION_MISSUSE: return "function missuse";
+        case EXCEPTION_UNKNOWN_RETURN:   return "return value unknown";
     }
     return "unknown exception";
 }

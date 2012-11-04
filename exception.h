@@ -31,30 +31,30 @@
 
 #define EXCEPTION_IO                1
 #define EXCEPTION_NO_MEMORY         2
-#define EXCEPTION_STACK_OVERFLOW    3
-#define EXCEPTION_STACK_EMPTY       4
-#define EXCEPTION_FUNCTION_MISSING  5
-#define EXCEPTION_OBJECT_SIZE       6
-#define EXCEPTION_BUFFER_OVERFLOW   7
-#define EXCEPTION_QUEUE_EMPTY       8
-#define EXCEPTION_WRONG_CONFIG      9
-#define EXCEPTION_FUNCTION_MISSUSE  10
-#define EXCEPTION_UNKNOWN_RETURN    11
+#define EXCEPTION_NO_SPACE          3
+#define EXCEPTION_STACK_OVERFLOW    4
+#define EXCEPTION_STACK_EMPTY       5
+#define EXCEPTION_FUNCTION_MISSING  6
+#define EXCEPTION_OBJECT_SIZE       7
+#define EXCEPTION_BUFFER_OVERFLOW   8
+#define EXCEPTION_QUEUE_EMPTY       9
+#define EXCEPTION_WRONG_CONFIG      10
+#define EXCEPTION_FUNCTION_MISSUSE  11
+#define EXCEPTION_UNKNOWN_RETURN    12
 
 
 #define TRY \
 { \
-    int exception = 0; \
     jmp_buf* buf = exception_point_init(); \
     setjmp(*buf); \
     if(!exception_point_start()) \
     {
 
 #define YRT \
+    exception_done(); \
     } \
     else \
     { \
-        exception = 1; \
         int matched = 0; \
         switch(exception_get()) \
         { \
@@ -82,12 +82,10 @@
         if(!matched) \
             exception_chain(); \
     } \
-    if(!exception) \
-        exception_done(); \
 }
 
 #define THROW(E) \
-    exception_throw(E);
+    exception_throw(E)
 
 
 void exception_init();
