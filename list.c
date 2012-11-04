@@ -437,9 +437,9 @@ void* list_get_prev_d(void* elem, int size)
 struct list_state* list_get_base_d(void* elem, int size)
 {
     struct list_elem* lelem = 0;
-    memcpy(lelem, (char*)elem+size, sizeof(void*));
+    memcpy(&lelem, (char*)elem+size, sizeof(void*));
     struct list_state* list = 0;
-    memcpy(list, (char*)lelem+sizeof(struct list_elem), sizeof(void*));
+    memcpy(&list, (char*)lelem+sizeof(struct list_elem), sizeof(void*));
     return list;
 }
 
