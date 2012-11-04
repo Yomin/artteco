@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 // FORWARDS
 
@@ -42,6 +43,16 @@
 #define LINE_END(Line)   (Line->line + Line->start + Line->size)
 #define LINE_FREE(Line)  (FILE_LINE_SIZE - Line->start - Line->size)
 
+#define FILE_COPY_SIZE 2048
+
+struct save_state
+{
+    char *buf;
+    long pos, newpos;
+    int size;
+    FILE *src, *dst;
+};
+
 // VARIABLES
 
 // INTERNAL
@@ -50,6 +61,68 @@ void rem_lines(void* elem)
 {
     struct list_state* lines = elem;
     list_clear(lines);
+}
+
+void save_lines(void* elem, void* akk)
+{
+    struct save_state *state = akk;
+    struct file_line *line = elem;
+    
+    state->size += line->size;
+    int count = line->size;
+    while(count)
+    {
+        count -= fwrite(LINE_START(line), sizeof(char), count, state->dst);
+        if(ferror(state->dst))
+        {
+            if(errno == ENOSPC)
+                THROW(EXCEPTION_NO_SPACE);
+            else
+                THROW(EXCEPTION_IO);
+        }
+    }
+}
+
+void save_chunks(void* elem, void* akk)
+{
+    struct save_state *state = akk;
+    struct file_chunk *chunk = elem;
+    
+    int count, wc;
+    fseek(state->src, state->pos, SEEK_SET);
+    state->newpos += chunk->offset - state->pos;
+    
+    while(state->pos < chunk->offset)
+    {
+        count = chunk->offset - state->pos;
+        if(count > FILE_COPY_SIZE)
+            count = FILE_COPY_SIZE;
+        
+        count = fread(state->buf, sizeof(char), count, state->src);
+        if(ferror(state->src))
+            THROW(EXCEPTION_IO);
+        
+        wc = count;
+        while(wc)
+        {
+            wc -= fwrite(state->buf+count-wc, sizeof(char), wc, state->dst);
+            if(ferror(state->dst))
+            {
+                if(errno == ENOSPC)
+                    THROW(EXCEPTION_NO_SPACE);
+                else
+                    THROW(EXCEPTION_IO);
+            }
+        }
+        state->pos += count;
+    }
+    
+    state->pos += chunk->size;
+    state->size = 0;
+    list_fold(save_lines, akk, &chunk->lines);
+    chunk->offset = state->newpos;
+    chunk->size = state->size;
+    state->newpos += state->size;
 }
 
 // EXTERNAL
@@ -70,8 +143,8 @@ void file_init(struct file_state* file)
     list_init_s(sizeof(struct file_pos), &first_line->pos);
     first_line->size = 0;
     list_init_s(sizeof(struct file_pos), &first_line->pos);
-    first_chunk->start = 0;
-    first_chunk->end = -1;
+    first_chunk->offset = 0;
+    first_chunk->size = 0;
     file->file = 0;
 }
 
@@ -103,7 +176,7 @@ void file_close(struct file_state* file)
  */
 int file_load(const char* filename, struct file_state* file)
 {
-    file->file = fopen(filename, "r+");
+    file->file = fopen(filename, "r");
     if(!file->file)
         return FILE_ERROR_NOT_FOUND;
     if(strlen(filename) > FILE_NAME_SIZE-1)
@@ -117,6 +190,7 @@ int file_load(const char* filename, struct file_state* file)
     do
     {
         line->size = fread(line->line, 1, FILE_LINE_SIZE, file->file);
+        chunk->size += line->size;
         if(feof(file->file))
             break;
         if(ferror(file->file))
@@ -141,8 +215,111 @@ int file_load(const char* filename, struct file_state* file)
  */
 int file_save(const char* filename, struct file_state* file)
 {
-    // todo
-    return -1;
+    if(!file->file)
+        file->file = fopen(file->name, "r");
+    if(!file->file)
+        return FILE_ERROR_SRC_LOST;
+    
+    struct save_state state;
+    state.pos = 0;
+    state.newpos = 0;
+    state.src = file->file;
+    state.buf = malloc(FILE_COPY_SIZE*sizeof(char));
+    if(!state.buf)
+        THROW(EXCEPTION_NO_MEMORY);
+    
+    if(!filename || !strcmp(filename, file->name))
+    {
+        sprintf(state.buf, "%s.teco.tmp", file->name);
+        state.dst = fopen(state.buf, "w");
+        if(!state.dst)
+        {
+            free(state.buf);
+            return FILE_ERROR_CANT_WRITE;
+        }
+    }
+    else
+    {
+        if(strlen(filename) > FILE_NAME_SIZE-1)
+        {
+            free(state.buf);
+            return FILE_ERROR_NAME_SIZE;
+        }
+        state.dst = fopen(filename, "w");
+        if(!state.dst)
+        {
+            free(state.buf);
+            return FILE_ERROR_CANT_WRITE;
+        }
+    }
+    
+    TRY
+        list_fold(save_chunks, &state, &file->chunks);
+    YRT
+    CATCH(EXCEPTION_IO)
+        free(state.buf);
+        return FILE_ERROR_CANT_WRITE;
+    CATCH(EXCEPTION_NO_SPACE)
+        free(state.buf);
+        return FILE_ERROR_NO_SPACE;
+    HCTAC
+    
+    fseek(state.src, state.pos, SEEK_SET);
+    
+    int count, wc;
+    while(!feof(state.src))
+    {
+        count = fread(state.buf, sizeof(char), FILE_COPY_SIZE, state.src);
+        if(ferror(state.src))
+        {
+            free(state.buf);
+            THROW(EXCEPTION_IO);
+        }
+        
+        wc = count;
+        while(wc)
+        {
+            wc -= fwrite(state.buf+count-wc, sizeof(char), wc, state.dst);
+            if(ferror(state.dst))
+            {
+                free(state.buf);
+                if(errno == ENOSPC)
+                    THROW(EXCEPTION_NO_SPACE);
+                else
+                    THROW(EXCEPTION_IO);
+            }
+        }
+    }
+    
+    fclose(state.src);
+    fclose(state.dst);
+    file->file = 0;
+    
+    if(!filename || !strcmp(filename, file->name))
+    {
+        sprintf(state.buf, "%s.teco.tmp", file->name);
+        if(remove(file->name) == -1)
+        {
+            free(state.buf);
+            if(errno == ENOENT)
+                return FILE_ERROR_SRC_LOST;
+            return FILE_ERROR_CANT_WRITE;
+        }
+        if(rename(state.buf, file->name) == -1)
+        {
+            free(state.buf);
+            return FILE_ERROR_CANT_WRITE;
+        }
+    }
+    else
+        strcpy(file->name, filename);
+    
+    free(state.buf);
+    file->file = fopen(file->name, "r");
+    if(!file->file)
+        THROW(EXCEPTION_IO);
+    
+    return 0;
 }
 
 /** \brief Add a #file_pos to a line.

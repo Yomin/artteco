@@ -59,6 +59,7 @@
 #define FILE_ERROR_NAME_SIZE  -2
 #define FILE_ERROR_NO_SPACE   -3
 #define FILE_ERROR_CANT_WRITE -4
+#define FILE_ERROR_SRC_LOST   -5
 
 struct file_pos
 {
@@ -76,7 +77,8 @@ struct file_line
 
 struct file_chunk
 {
-    int start, end;
+    long offset;
+    int size;
     struct list_state lines;
 };
 

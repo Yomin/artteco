@@ -35,8 +35,10 @@
 // DEFINES
 
 #define BUFFER_STATUS_SIZE 80
-#define BUFFER_STATUS_MODIFIED 1
-#define BUFFER_STATUS_READONLY 2
+#define BUFFER_STATUS_MODIFIED_FWD 1
+#define BUFFER_STATUS_MODIFIED_BWD 2
+#define BUFFER_STATUS_MODIFIED     3
+#define BUFFER_STATUS_READONLY     4
 
 #define MIN(x,y) ((x)<(y) ? (x) : (y))
 
@@ -176,7 +178,12 @@ void buffer_flush(struct buffer_state* buffer)
 int buffer_save(const char* filename, struct buffer_state* buffer)
 {
     buffer_flush(buffer);
-    return buffer_map_error(file_save(filename, &buffer->file));
+    int ret = buffer_map_error(file_save(filename, &buffer->file));
+    if(ret)
+        return ret;
+    buffer->status &= ~BUFFER_STATUS_MODIFIED;
+    screen_set_status(buffer_status(buffer));
+    return 0;
 }
 
 const char* buffer_status(struct buffer_state* buffer)
@@ -184,7 +191,8 @@ const char* buffer_status(struct buffer_state* buffer)
     const char* status = "", *str = "";
     switch(buffer->status)
     {
-        case BUFFER_STATUS_MODIFIED:
+        case BUFFER_STATUS_MODIFIED_FWD:
+        case BUFFER_STATUS_MODIFIED_BWD:
             status = " (modified)";
             break;
         case BUFFER_STATUS_READONLY:
@@ -217,11 +225,19 @@ void buffer_write_str_rubout()
     int len;
     rubout_load(&buffer);
     rubout_load(&len);
-    if(len < 0)
+    switch(buffer->status)
     {
-        len = -len;
-        buffer->status &= ~BUFFER_STATUS_MODIFIED;
+        case BUFFER_STATUS_MODIFIED_FWD:
+            if(len < 0)
+                buffer->status &= ~BUFFER_STATUS_MODIFIED_FWD;
+            break;
+        case BUFFER_STATUS_MODIFIED_BWD:
+            break;
+        default:
+            buffer->status |= BUFFER_STATUS_MODIFIED_BWD;
     }
+    if(len < 0)
+        len = -len;
     buffer_delete(len, 0, buffer);
 }
 
@@ -233,7 +249,8 @@ void buffer_write_str(const char* str, struct buffer_state* buffer)
     if(!(buffer->status & BUFFER_STATUS_MODIFIED))
     {
         len = -len;
-        buffer->status |= BUFFER_STATUS_MODIFIED;
+        buffer->status &= ~BUFFER_STATUS_MODIFIED_BWD;
+        buffer->status |= BUFFER_STATUS_MODIFIED_FWD;
         buffer_display_status(buffer, buffer);
         // first status rubout to revert status after str rubout
     }
@@ -257,8 +274,17 @@ void buffer_delete_str_rubout()
     char* buf = rubout_top_ptr();
     buffer_write_str(buf, buffer);
     rubout_load(0);
-    if(buf[0])
-        buffer->status &= ~BUFFER_STATUS_MODIFIED;
+    switch(buffer->status)
+    {
+        case BUFFER_STATUS_MODIFIED_FWD:
+            if(buf[0])
+                buffer->status &= ~BUFFER_STATUS_MODIFIED_FWD;
+            break;
+        case BUFFER_STATUS_MODIFIED_BWD:
+            break;
+        default:
+            buffer->status |= BUFFER_STATUS_MODIFIED_BWD;
+    }
 }
 
 int buffer_delete_str(int count, struct buffer_state* buffer)
@@ -269,7 +295,8 @@ int buffer_delete_str(int count, struct buffer_state* buffer)
     if(!(buffer->status & BUFFER_STATUS_MODIFIED))
     {
         buf[0] = 1;
-        buffer->status |= BUFFER_STATUS_MODIFIED;
+        buffer->status &= ~BUFFER_STATUS_MODIFIED_BWD;
+        buffer->status |= BUFFER_STATUS_MODIFIED_FWD;
         buffer_display_status(buffer, buffer);
         // first status rubout to revert status after delete rubout
     }
@@ -800,6 +827,7 @@ int buffer_map_error(int fileerror)
         case FILE_ERROR_NAME_SIZE:  return BUFFER_ERROR_FILE_NAME_SIZE;
         case FILE_ERROR_NO_SPACE:   return BUFFER_ERROR_FILE_NO_SPACE;
         case FILE_ERROR_CANT_WRITE: return BUFFER_ERROR_FILE_CANT_WRITE;
+        case FILE_ERROR_SRC_LOST:   return BUFFER_ERROR_FILE_SRC_LOST;
     }
     THROW(EXCEPTION_UNKNOWN_RETURN);
     return 0;

@@ -305,6 +305,12 @@ struct cmd_ret extra_buffer_save_func(char* str)
         case BUFFER_ERROR_FILE_CANT_WRITE:
             screen_set_msg("write failed");
             return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
+        case BUFFER_ERROR_FILE_NAME_SIZE:
+            screen_set_msg("filename to long");
+            return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
+        case BUFFER_ERROR_FILE_SRC_LOST:
+            screen_set_msg("source file not available anymore");
+            return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
     }
     
     return ret(CMD_RET_SUCCESS, 0);

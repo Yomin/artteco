@@ -50,8 +50,9 @@
 #define BUFFER_ERROR_FILE_NAME_SIZE  -2
 #define BUFFER_ERROR_FILE_NO_SPACE   -3
 #define BUFFER_ERROR_FILE_CANT_WRITE -4
-#define BUFFER_ERROR_BEGIN           -5
-#define BUFFER_ERROR_END             -6
+#define BUFFER_ERROR_FILE_SRC_LOST   -5
+#define BUFFER_ERROR_BEGIN           -6
+#define BUFFER_ERROR_END             -7
 
 struct buffer_state
 {
