@@ -57,7 +57,8 @@ struct buffer_state
 {
     char status;
     char name[BUFFER_NAME_SIZE];
-    int number, linenumber;
+    int number;
+    int flush_x, flush_y;
     struct list_state lines;
     struct stack_state stack;
     struct file_state file;

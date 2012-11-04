@@ -93,7 +93,7 @@ void buffer_init(const char* name, int number, struct buffer_state* buffer)
     line->pos = file_add_pos(0, 0, 0, 0, &buffer->file);
 
     stack_init(STACK_MODE_EXT|STACK_MODE_QUEUE, sizeof(struct point), name, &buffer->stack);
-    buffer->linenumber = 0;
+    buffer->flush_y = buffer->flush_x = 0;
 }
 
 void buffer_close(struct buffer_state* buffer)
@@ -124,20 +124,53 @@ int buffer_load(const char* file, struct buffer_state* buffer)
 
 void buffer_flush(struct buffer_state* buffer)
 {
-    int pos_y __attribute__((unused)) = 0, pos_x __attribute__((unused)) = 0;
+    int y = buffer->flush_y, x = buffer->flush_x;
     char op;
-    while(stack_pop_e(&op, &buffer->stack) >= 0)
+    int max = screen_get_buffer_columns();
+    struct buffer_line* line = list_get(y, &buffer->lines);
+    struct stack_elem elem;
+    struct point p;
+    
+    while(!stack_queue_empty(&buffer->stack))
     {
+        elem = stack_queue_top_p(&buffer->stack);
+        stack_queue_next(&buffer->stack);
+        stack_queue_get(&op, &buffer->stack);
+        
         switch(op)
         {
             case OP_ADD:
+                file_insert(elem.ptr, elem.size, line->pos->offset+x, line->pos->line);
+                x += elem.size;
+                if(x >= max)
+                {
+                    x -= max;
+                    y++;
+                    line = list_get_next(line, &buffer->lines);
+                }
                 break;
             case OP_DEL:
+                file_erase(elem.size, line->pos->offset+x, line->pos->line);
+                x -= elem.size;
+                if(x < 0)
+                {
+                    x += max;
+                    y--;
+                    line = list_get_prev(line, &buffer->lines);
+                }
                 break;
             case OP_MOV:
+                memcpy(&p, elem.ptr, sizeof(struct point));
+                y = p.y;
+                x = p.x;
+                line = list_get(y, &buffer->lines);
                 break;
         }
     }
+    
+    buffer->flush_y = y;
+    buffer->flush_x = x;
+    stack_clear(&buffer->stack);
 }
 
 int buffer_save(const char* filename, struct buffer_state* buffer)
