@@ -70,7 +70,7 @@ void show_lines(void* elem, void* akk);
 
 void buffer_write(const char* str, struct buffer_state* buffer);
 void buffer_delete(int count, char* buf, struct buffer_state* buffer);
-void buffer_move(int amount, int y, int x, struct buffer_state* buffer);
+struct point buffer_move(int amount, int y, int x, struct buffer_state* buffer);
 
 int buffer_check_sufficient(int amount, int xpos, struct buffer_line* line, struct buffer_state* buffer);
 
@@ -357,18 +357,17 @@ void buffer_move_cursor_rubout()
     buffer_move(-amount, y, x, buffer);
     screen_refresh();
     
-    struct point p_first, p_current;
-    screen_get_cursor(&p_current.y, &p_current.x);
+    struct point p;
     
-    stack_pop_s(&buffer->stack);         // op
-    stack_top(&p_first, &buffer->stack); // pos
+    stack_pop_s(&buffer->stack);   // op
+    stack_pop(&p, &buffer->stack); // pos
     
-    if(p_first.y == p_current.y && p_first.x == p_current.x)
+    if(p.y != y || p.x != x)
     {
-        stack_pop_s(&buffer->stack);
-    }
-    else
+        screen_get_cursor(&p.y, &p.x);
+        stack_push_s(&p, &buffer->stack);
         stack_push_vc(OP_MOV, &buffer->stack);
+    }
 }
 
 int buffer_move_cursor(int amount, struct buffer_state* buffer)
@@ -386,26 +385,18 @@ int buffer_move_cursor(int amount, struct buffer_state* buffer)
             return BUFFER_ERROR_END;
     }
     
-    buffer_move(amount, p.y, p.x, buffer);
+    p = buffer_move(amount, p.y, p.x, buffer);
     
     char op;
-    int size = stack_pop_e(&op, &buffer->stack);
-    if(size >= 0)
+    if(stack_pop_e(&op, &buffer->stack) >= 0)
     {
         if(op == OP_MOV)
-            stack_push_vc(OP_MOV, &buffer->stack);
+            stack_pop_s(&buffer->stack);
         else
-        {
             stack_push_vc(op, &buffer->stack);
-            stack_push_s(&p, &buffer->stack);
-            stack_push_vc(OP_MOV, &buffer->stack);
-        }
     }
-    else
-    {
-        stack_push_s(&p, &buffer->stack);
-        stack_push_vc(OP_MOV, &buffer->stack);
-    }
+    stack_push_s(&p, &buffer->stack);
+    stack_push_vc(OP_MOV, &buffer->stack);
     
     screen_refresh();
     rubout_save(&amount, sizeof(int));
@@ -726,9 +717,11 @@ void buffer_delete(int count, char* buf, struct buffer_state* buffer)
     screen_refresh();
 }
 
-void buffer_move(int amount, int y, int x, struct buffer_state* buffer)
+struct point buffer_move(int amount, int y, int x, struct buffer_state* buffer)
 {
     struct buffer_line* line = list_current(&buffer->lines);
+    struct point p;
+    p.y = p.x = -1;
     
     if(amount < 0)
     {
@@ -736,6 +729,8 @@ void buffer_move(int amount, int y, int x, struct buffer_state* buffer)
             if(-amount <= x)
             {
                 screen_set_cursor(y, x+amount);
+                p.y = y;
+                p.x = x+amount;
                 break;
             }
             else
@@ -760,6 +755,8 @@ void buffer_move(int amount, int y, int x, struct buffer_state* buffer)
             if(amount <= line->size-x)
             {
                 screen_set_cursor(y, x+amount);
+                p.y = y;
+                p.x = x+amount;
                 break;
             }
             else
@@ -779,6 +776,7 @@ void buffer_move(int amount, int y, int x, struct buffer_state* buffer)
                     --amount;
             }
     }
+    return p;
 }
 
 int buffer_check_sufficient(int amount, int xpos, struct buffer_line* line, struct buffer_state* buffer)
