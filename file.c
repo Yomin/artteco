@@ -602,6 +602,10 @@ void file_insert(const char *str, int size, int offset, struct file_line* line)
  */
 void file_erase(int size, int offset, struct file_line* line)
 {
-    
+    if(size <= offset)
+    {
+        memmove(LINE_START(line)+offset-size, LINE_START(line)+offset, line->size-offset);
+        line->size -= size;
+    }
 }
 
