@@ -69,7 +69,6 @@ void* push(void* elem, int size, struct stack_state* stack)
     int ext = stack->mode & STACK_MODE_EXT ? 1 : 0;
     int queue = stack->mode & STACK_MODE_QUEUE ? 1 : 0;
     int extrasize = (queue+1) * ext * sizeof(unsigned char);
-    char* ptr = stack->ptr;
     
     if(stack->ptr+size+extrasize-stack->stack >= STACK_SIZE)
         THROW(EXCEPTION_STACK_OVERFLOW);
@@ -79,9 +78,12 @@ void* push(void* elem, int size, struct stack_state* stack)
         memcpy(stack->ptr, &csize, sizeof(unsigned char));
         stack->ptr += sizeof(unsigned char);
     }
+    
+    char* ptr = stack->ptr;
     if(elem)
         memcpy(stack->ptr, elem, size);
     stack->ptr += size;
+    
     if(ext)
     {
         memcpy(stack->ptr, &csize, sizeof(unsigned char));
