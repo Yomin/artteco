@@ -243,10 +243,7 @@ struct cmd_ret extra_exit(int given, int param)
 struct cmd_ret extra_buffer_load_func(char* str)
 {
     if(strlen(str) == 0)
-    {
-        screen_set_msg("filename required");
-        return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
-    }
+        buffer_mgr_add_new();
     else
     {
         switch(buffer_mgr_add_file(basename(str), str))
@@ -258,8 +255,8 @@ struct cmd_ret extra_buffer_load_func(char* str)
                 screen_set_msg("filename to long");
                 return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
         }
-        return ret(CMD_RET_SUCCESS, 0);
     }
+    return ret(CMD_RET_SUCCESS, 0);
 }
 
 struct cmd_ret extra_buffer_load(int given, int param)
@@ -297,19 +294,22 @@ struct cmd_ret extra_buffer_save_func(char* str)
     if(strlen(str) == 0)
         str = 0;
     
-    switch(buffer_save(str, buffer_mgr_current()))
+    switch(buffer_mgr_save_current(str))
     {
-        case BUFFER_ERROR_FILE_NO_SPACE:
+        case BUFFER_MGR_ERROR_FILE_NO_SPACE:
             screen_set_msg("no space left");
             return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
-        case BUFFER_ERROR_FILE_CANT_WRITE:
+        case BUFFER_MGR_ERROR_FILE_CANT_WRITE:
             screen_set_msg("write failed");
             return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
-        case BUFFER_ERROR_FILE_NAME_SIZE:
+        case BUFFER_MGR_ERROR_FILE_NAME_SIZE:
             screen_set_msg("filename to long");
             return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
-        case BUFFER_ERROR_FILE_SRC_LOST:
+        case BUFFER_MGR_ERROR_FILE_SRC_LOST:
             screen_set_msg("source file not available anymore");
+            return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
+        case BUFFER_MGR_ERROR_FILE_NAME_NEEDED:
+            screen_set_msg("filename needed");
             return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
     }
     

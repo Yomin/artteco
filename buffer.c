@@ -31,6 +31,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <libgen.h>
 
 // DEFINES
 
@@ -89,6 +90,9 @@ char buf[BUFFER_STATUS_SIZE];
 
 void buffer_init(const char* name, int number, struct buffer_state* buffer)
 {
+    if(!name)
+        name = "new buffer";
+    
     strncpy(buffer->name, name, BUFFER_NAME_SIZE-1);
     buffer->name[MIN(strlen(name), BUFFER_NAME_SIZE-1)] = 0;
     buffer->number = number;
@@ -183,9 +187,14 @@ void buffer_flush(struct buffer_state* buffer)
 int buffer_save(const char* filename, struct buffer_state* buffer)
 {
     buffer_flush(buffer);
+    int unsaved = !buffer->file.file;
+    
     int ret = buffer_map_error(file_save(filename, &buffer->file));
     if(ret)
         return ret;
+    
+    if(unsaved)
+        strcpy(buffer->name, basename(buffer->file.name));
     buffer->status &= ~BUFFER_STATUS_MODIFIED;
     screen_set_status(buffer_status(buffer));
     return 0;
@@ -824,12 +833,13 @@ int buffer_map_error(int fileerror)
 {
     switch(fileerror)
     {
-        case 0:                     return 0;
-        case FILE_ERROR_NOT_FOUND:  return BUFFER_ERROR_FILE_NOT_FOUND;
-        case FILE_ERROR_NAME_SIZE:  return BUFFER_ERROR_FILE_NAME_SIZE;
-        case FILE_ERROR_NO_SPACE:   return BUFFER_ERROR_FILE_NO_SPACE;
-        case FILE_ERROR_CANT_WRITE: return BUFFER_ERROR_FILE_CANT_WRITE;
-        case FILE_ERROR_SRC_LOST:   return BUFFER_ERROR_FILE_SRC_LOST;
+        case 0:                      return 0;
+        case FILE_ERROR_NOT_FOUND:   return BUFFER_ERROR_FILE_NOT_FOUND;
+        case FILE_ERROR_NAME_SIZE:   return BUFFER_ERROR_FILE_NAME_SIZE;
+        case FILE_ERROR_NO_SPACE:    return BUFFER_ERROR_FILE_NO_SPACE;
+        case FILE_ERROR_CANT_WRITE:  return BUFFER_ERROR_FILE_CANT_WRITE;
+        case FILE_ERROR_SRC_LOST:    return BUFFER_ERROR_FILE_SRC_LOST;
+        case FILE_ERROR_NAME_NEEDED: return BUFFER_ERROR_FILE_NAME_NEEDED;
     }
     THROW(EXCEPTION_UNKNOWN_RETURN);
     return 0;

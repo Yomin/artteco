@@ -30,21 +30,27 @@
 #include "buffer.h"
 
 #define BUFFER_MGR_ERROR_ACCESS_FORBIDDEN -1
-#define BUFFER_MGR_ERROR_FILE_NOT_FOUND   -2
-#define BUFFER_MGR_ERROR_FILE_NAME_SIZE   -3
-#define BUFFER_MGR_ERROR_FILE_NO_SPACE    -4
-#define BUFFER_MGR_ERROR_FILE_CANT_WRITE  -5
-#define BUFFER_MGR_ERROR_NOT_FOUND        -6
-#define BUFFER_MGR_ERROR_EXISTING         -7
+#define BUFFER_MGR_ERROR_NOT_FOUND        -2
+#define BUFFER_MGR_ERROR_EXISTING         -3
+#define BUFFER_MGR_ERROR_FILE_NOT_FOUND   -4
+#define BUFFER_MGR_ERROR_FILE_NAME_SIZE   -5
+#define BUFFER_MGR_ERROR_FILE_NO_SPACE    -6
+#define BUFFER_MGR_ERROR_FILE_CANT_WRITE  -7
+#define BUFFER_MGR_ERROR_FILE_SRC_LOST    -8
+#define BUFFER_MGR_ERROR_FILE_NAME_NEEDED -9
+
 
 void buffer_mgr_init();
 void buffer_mgr_finish();
 void buffer_mgr_flush();
 
-void buffer_mgr_add(const char* name);
-void buffer_mgr_add_intern(const char* name);
+int  buffer_mgr_add(const char* name);
+int  buffer_mgr_add_intern(const char* name);
 int  buffer_mgr_add_file(const char* name, const char* file);
+void buffer_mgr_add_new();
 int  buffer_mgr_delete(int number);
+int  buffer_mgr_save(int number, const char* name);
+int  buffer_mgr_save_current(const char* name);
 
 struct buffer_state* buffer_mgr_current();
 struct buffer_state* buffer_mgr_switch(int number);

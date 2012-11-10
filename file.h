@@ -55,11 +55,12 @@
 
 #define FILE_NAME_SIZE 80
 
-#define FILE_ERROR_NOT_FOUND  -1
-#define FILE_ERROR_NAME_SIZE  -2
-#define FILE_ERROR_NO_SPACE   -3
-#define FILE_ERROR_CANT_WRITE -4
-#define FILE_ERROR_SRC_LOST   -5
+#define FILE_ERROR_NOT_FOUND   -1
+#define FILE_ERROR_NAME_SIZE   -2
+#define FILE_ERROR_NO_SPACE    -3
+#define FILE_ERROR_CANT_WRITE  -4
+#define FILE_ERROR_SRC_LOST    -5
+#define FILE_ERROR_NAME_NEEDED -6
 
 struct file_pos
 {

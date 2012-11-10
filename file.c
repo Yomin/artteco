@@ -89,8 +89,10 @@ void save_chunks(void* elem, void* akk)
     struct file_chunk *chunk = elem;
     
     int count, wc;
-    fseek(state->src, state->pos, SEEK_SET);
     state->newpos += chunk->offset - state->pos;
+    
+    if(state->src)
+        fseek(state->src, state->pos, SEEK_SET);
     
     while(state->pos < chunk->offset)
     {
@@ -146,6 +148,7 @@ void file_init(struct file_state* file)
     first_chunk->offset = 0;
     first_chunk->size = 0;
     file->file = 0;
+    file->name[0] = 0;
 }
 
 /** \brief Close file.
@@ -215,10 +218,19 @@ int file_load(const char* filename, struct file_state* file)
  */
 int file_save(const char* filename, struct file_state* file)
 {
-    if(!file->file)
+    int unsaved   = !file->name[0];
+    int overwrite = !filename || !strcmp(filename, file->name);
+    // int newfile   = !unsaved && !overwrite;
+    
+    if(unsaved && !filename)
+        return FILE_ERROR_NAME_NEEDED;
+    
+    if(!unsaved && !file->file)
+    {
         file->file = fopen(file->name, "r");
-    if(!file->file)
-        return FILE_ERROR_SRC_LOST;
+        if(!file->file)
+            return FILE_ERROR_SRC_LOST;
+    }
     
     struct save_state state;
     state.pos = 0;
@@ -228,7 +240,7 @@ int file_save(const char* filename, struct file_state* file)
     if(!state.buf)
         THROW(EXCEPTION_NO_MEMORY);
     
-    if(!filename || !strcmp(filename, file->name))
+    if(overwrite)
     {
         sprintf(state.buf, "%s.teco.tmp", file->name);
         state.dst = fopen(state.buf, "w");
@@ -264,38 +276,42 @@ int file_save(const char* filename, struct file_state* file)
         return FILE_ERROR_NO_SPACE;
     HCTAC
     
-    fseek(state.src, state.pos, SEEK_SET);
-    
-    int count, wc;
-    while(!feof(state.src))
+    if(!unsaved)
     {
-        count = fread(state.buf, sizeof(char), FILE_COPY_SIZE, state.src);
-        if(ferror(state.src))
+        fseek(state.src, state.pos, SEEK_SET);
+    
+        int count, wc;
+        while(!feof(state.src))
         {
-            free(state.buf);
-            THROW(EXCEPTION_IO);
-        }
-        
-        wc = count;
-        while(wc)
-        {
-            wc -= fwrite(state.buf+count-wc, sizeof(char), wc, state.dst);
-            if(ferror(state.dst))
+            count = fread(state.buf, sizeof(char), FILE_COPY_SIZE, state.src);
+            if(ferror(state.src))
             {
                 free(state.buf);
-                if(errno == ENOSPC)
-                    THROW(EXCEPTION_NO_SPACE);
-                else
-                    THROW(EXCEPTION_IO);
+                THROW(EXCEPTION_IO);
+            }
+            
+            wc = count;
+            while(wc)
+            {
+                wc -= fwrite(state.buf+count-wc, sizeof(char), wc, state.dst);
+                if(ferror(state.dst))
+                {
+                    free(state.buf);
+                    if(errno == ENOSPC)
+                        THROW(EXCEPTION_NO_SPACE);
+                    else
+                        THROW(EXCEPTION_IO);
+                }
             }
         }
+    
+        fclose(state.src);
     }
     
-    fclose(state.src);
     fclose(state.dst);
     file->file = 0;
     
-    if(!filename || !strcmp(filename, file->name))
+    if(overwrite)
     {
         sprintf(state.buf, "%s.teco.tmp", file->name);
         if(remove(file->name) == -1)
