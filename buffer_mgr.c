@@ -80,15 +80,19 @@ void delete(int number)
 
 int add(const char* name, int number, const char* file)
 {
-    struct buffer_state* current = list_add_c(0, &buffer_list);
-    buffer_init(name, number, current);
+    struct buffer_state* new = list_add(0, &buffer_list);
+    buffer_init(name, number, new);
     if(file)
     {
-        int ret = buffer_mgr_map_error(buffer_load(file, current));
+        int ret = buffer_mgr_map_error(buffer_load(file, new));
         if(ret)
+        {
+            delete(new->number);
             return ret;
+        }
     }
-    buffer_display(current);
+    list_find_c(match_by_number, &new->number, &buffer_list);
+    buffer_display(new);
     return 0;
 }
 
@@ -120,7 +124,7 @@ int mgr_save(struct buffer_state* buf, const char* name)
     {
         struct buffer_state* intern = list_add(0, &buffer_list);
         buffer_init("TECO-Main", -1, intern);
-        buf->number = ++count_buffer;
+        buf->number = count_buffer++;
     }
     
     int ret = buffer_mgr_map_error(buffer_save(name, buf));
@@ -172,9 +176,9 @@ void buffer_mgr_init()
 {
     buffer_mgr_register_rubouts();
     list_init_s(sizeof(struct buffer_state), &buffer_list);
-    count_intern = 0;
-    count_buffer = 0;
-    add("TECO-Main", --count_intern, 0);
+    count_intern = -1;
+    count_buffer = 1;
+    add("TECO-Main", count_intern--, 0);
     screen_set_status(buffer_status(list_current(&buffer_list)));
 }
 
@@ -195,9 +199,12 @@ void buffer_mgr_add_rubout()
 
 int buffer_mgr_add(const char* name)
 {
-    int ret = mgr_add(name, ++count_buffer, 0);
+    int ret = mgr_add(name, count_buffer, 0);
     if(!ret)
+    {
+        ++count_buffer;
         rubout_register_s(buffer_mgr_add_rubout);
+    }
     return ret;
 }
 
@@ -208,23 +215,29 @@ void buffer_mgr_add_intern_rubout()
 
 int buffer_mgr_add_intern(const char* name)
 {
-    int ret = mgr_add(name, --count_intern, 0);
+    int ret = mgr_add(name, count_intern, 0);
     if(!ret)
+    {
+        --count_intern;
         rubout_register_s(buffer_mgr_add_intern_rubout);
+    }
     return ret;
 }
 
 int buffer_mgr_add_file(const char* name, const char* file)
 {
-    int ret = mgr_add(name, ++count_buffer, file);
+    int ret = mgr_add(name, count_buffer, file);
     if(!ret)
+    {
+        ++count_buffer;
         rubout_register_s(buffer_mgr_add_rubout);
+    }
     return ret;
 }
 
 void buffer_mgr_add_new()
 {
-    mgr_add(0, ++count_buffer, 0);
+    mgr_add(0, count_buffer++, 0);
     rubout_register_s(buffer_mgr_add_rubout);
 }
 
