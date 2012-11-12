@@ -29,6 +29,7 @@
 #include "buffer_mgr.h"
 #include "screen.h"
 #include "rubout.h"
+#include "exception.h"
 
 #include <string.h>
 #include <libgen.h>
@@ -131,6 +132,8 @@ struct cmd_ret std_move_forward(int given, int param)
             screen_set_msg("buffer end");
             return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
             break;
+        default:
+            THROW(EXCEPTION_UNKNOWN_RETURN);
     }
     return ret(CMD_RET_SUCCESS, 0);
 }
@@ -150,6 +153,8 @@ struct cmd_ret std_move_backward(int given, int param)
             screen_set_msg("buffer end");
             return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
             break;
+        default:
+            THROW(EXCEPTION_UNKNOWN_RETURN);
     }
     return ret(CMD_RET_SUCCESS, 0);
 }
@@ -254,6 +259,8 @@ struct cmd_ret extra_buffer_load_func(char* str)
             case BUFFER_MGR_ERROR_FILE_NAME_SIZE:
                 screen_set_msg("filename to long");
                 return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
+            default:
+                THROW(EXCEPTION_UNKNOWN_RETURN);
         }
     }
     return ret(CMD_RET_SUCCESS, 0);
@@ -311,6 +318,8 @@ struct cmd_ret extra_buffer_save_func(char* str)
         case BUFFER_MGR_ERROR_FILE_NAME_NEEDED:
             screen_set_msg("filename needed");
             return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
+        default:
+            THROW(EXCEPTION_UNKNOWN_RETURN);
     }
     
     return ret(CMD_RET_SUCCESS, 0);
