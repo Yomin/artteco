@@ -124,14 +124,14 @@ struct cmd_ret std_move_forward(int given, int param)
 {
     switch(buffer_move_cursor(param, buffer_mgr_current()))
     {
+        case 0:
+            break;
         case BUFFER_ERROR_BEGIN:
             screen_set_msg("buffer begin");
             return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
-            break;
         case BUFFER_ERROR_END:
             screen_set_msg("buffer end");
             return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
-            break;
         default:
             THROW(EXCEPTION_UNKNOWN_RETURN);
     }
@@ -145,6 +145,8 @@ struct cmd_ret std_move_backward(int given, int param)
 {
     switch(buffer_move_cursor(-param, buffer_mgr_current()))
     {
+        case 0:
+            break;
         case BUFFER_ERROR_BEGIN:
             screen_set_msg("buffer begin");
             return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
@@ -253,6 +255,8 @@ struct cmd_ret extra_buffer_load_func(char* str)
     {
         switch(buffer_mgr_add_file(basename(str), str))
         {
+            case 0:
+                break;
             case BUFFER_MGR_ERROR_FILE_NOT_FOUND:
                 screen_set_msg("file not found");
                 return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
@@ -303,6 +307,8 @@ struct cmd_ret extra_buffer_save_func(char* str)
     
     switch(buffer_mgr_save_current(str))
     {
+        case 0:
+            break;
         case BUFFER_MGR_ERROR_FILE_NO_SPACE:
             screen_set_msg("no space left");
             return ret(CMD_RET_FAILURE|CMD_MASK_MSG, 0);
