@@ -65,6 +65,8 @@ struct buffer_state* switch_buf(int number)
 {
     struct buffer_state* current = list_current(&buffer_list);
     struct buffer_state* next = list_find_c(match_by_number, &number, &buffer_list);
+    if(!next)
+        return 0;
     if(current != next)
         buffer_display(next);
     return next;
@@ -294,8 +296,12 @@ void buffer_mgr_switch_rubout()
 struct buffer_state* buffer_mgr_switch(int number)
 {
     struct buffer_state* current = list_current(&buffer_list);
+    struct buffer_state* next = switch_buf(number);
+    if(!next)
+        return 0;
     rubout_register(buffer_mgr_switch_rubout, &current->number, sizeof(int));
-    return switch_buf(number);
+    buffer_display_status(next, current);
+    return next;
 }
 
 // INTERNAL
