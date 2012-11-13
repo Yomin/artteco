@@ -167,6 +167,7 @@ int mgr_add(const char* name, int number, const char* file)
     int ret = add(name, number, file);
     if(ret)
         return ret;
+    buffer_flush(current);
     buffer_display_status(list_current(&buffer_list), current);
     rubout_register(mgr_add_rubout, &current->number, sizeof(int));
     return 0;
@@ -300,6 +301,7 @@ struct buffer_state* buffer_mgr_switch(int number)
     if(!next)
         return 0;
     rubout_register(buffer_mgr_switch_rubout, &current->number, sizeof(int));
+    buffer_flush(current);
     buffer_display_status(next, current);
     return next;
 }
