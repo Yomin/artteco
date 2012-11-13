@@ -354,7 +354,7 @@ void buffer_display(struct buffer_state* buffer)
     list_fold(show_lines, &counter, &buffer->lines);
     
     list_get_c(0, &buffer->lines);
-    screen_set_cursor(0, 0);
+    screen_set_cursor(buffer->flush_y, buffer->flush_x);
     screen_refresh();
 }
 
